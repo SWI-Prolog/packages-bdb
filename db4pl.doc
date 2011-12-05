@@ -3,8 +3,8 @@
 \usepackage{html}
 
 \onefile
-\htmloutput{html}				% Output directory
-\htmlmainfile{index}				% Main document file
+\htmloutput{.}					% Output directory
+\htmlmainfile{db4pl}				% Main document file
 \bodycolor{white}				% Page colour
 
 \begin{document}
@@ -215,7 +215,7 @@ access the same keys in a different order.  The DB infra-structure
 causes one of the processes involved in the deadlock to abort its
 transaction.  This process may choose to restart the transaction.
 
-For example, a DB application may define \predref{\{\}}{1} to realise
+For example, a DB application may define \predref{\+}{1} to realise
 transactions and restart these automatically is a deadlock is raised:
 
 \begin{code}

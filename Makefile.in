@@ -4,41 +4,10 @@
 # Copyright: LGPL (see COPYING or www.gnu.org
 ################################################################
 
-.SUFFIXES: .tex .dvi .doc .pl
-
-PL=@PL@
-PLBASE=@PLBASE@
-PLARCH=@PLARCH@
-PKGDOC=$(PLBASE)/doc/packages
-PCEHOME=../xpce
-
-CC=@CC@
-COFLAGS=@COFLAGS@
-CWFLAGS=@CWFLAGS@
-CMFLAGS=@CMFLAGS@
-CIFLAGS=-I. @CIFLAGS@
-CFLAGS=$(COFLAGS) $(CWFLAGS) $(CMFLAGS) $(CIFLAGS) -DHAVE_CONFIG_H
-LDSOFLAGS=@LDSOFLAGS@
-SO=@SO@
-LIBS=@LIBS@
-
-
-DOCTOTEX=$(PCEHOME)/bin/doc2tex
-PLTOTEX=$(PCEHOME)/bin/pl2tex
-LATEX=latex
+PACKAGE=db
 DOC=db4pl
-TEX=$(DOC).tex
-DVI=$(DOC).dvi
-PDF=$(DOC).pdf
-HTML=$(DOC).html
-RUNTEX=../../man/runtex
-
-LD=@LD@
-LDFLAGS=@LDSOFLAGS@
-
-INSTALL=@INSTALL@
-INSTALL_PROGRAM=@INSTALL_PROGRAM@
-INSTALL_DATA=@INSTALL_DATA@
+include ../Makefile.defs
+CFLAGS+= -I.
 
 LIBPL=		db.pl
 TARGETS=	db4pl.$(SO)
@@ -79,28 +48,6 @@ uninstall:
 ################################################################
 
 check::
-
-################################################################
-# Documentation
-################################################################
-
-doc:		$(PDF) $(HTML)
-pdf:		$(PDF)
-html:		$(HTML)
-
-$(HTML):	$(TEX)
-		latex2html $(DOC)
-		mv html/index.html $@
-
-$(PDF):		$(TEX)
-		$(RUNTEX) --pdf $(DOC)
-
-$(TEX):		$(DOCTOTEX)
-
-.doc.tex:
-		$(DOCTOTEX) $*.doc > $*.tex
-.pl.tex:
-		$(PLTOTEX) $*.pl > $*.tex
 
 ################################################################
 # Clean
