@@ -19,11 +19,15 @@ all:		$(TARGETS)
 db4pl.$(SO):	$(DBOBJ)
 		$(LD) $(LDSOFLAGS) -o $@ $(DBOBJ) $(LIBS)
 
-install:	$(LIBPL)
-		mkdir -p $(DESTDIR)$(PLBASE)/lib/$(PLARCH)
-		$(INSTALL_PROGRAM) $(TARGETS) $(DESTDIR)$(PLBASE)/lib/$(PLARCH)
-		$(INSTALL_DATA) $(LIBPL) $(DESTDIR)$(PLBASE)/library
-		$(PL) -f none -g make -t halt
+install:	$(TARGETS) $(LIBPL)
+		mkdir -p $(DESTDIR)$(SOLIBDIR)
+		for f in $(TARGETS); do \
+		  $(INSTALL_PROGRAM) $$f $(DESTDIR)$(SOLIBDIR); \
+		done
+		for f in $(LIBPL); do \
+		  $(INSTALL_DATA) $$f $(DESTDIR)$(PLLIBDIR); \
+		done
+		$(MKINDEX)
 
 ln-install::
 		@$(MAKE) INSTALL='../ln-install' \
