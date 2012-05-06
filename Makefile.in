@@ -17,7 +17,7 @@ DBOBJ=		db4pl.o atom.o error.o
 all:		$(TARGETS)
 
 db4pl.$(SO):	$(DBOBJ)
-		$(LD) $(LDSOFLAGS) -o $@ $(DBOBJ) $(LIBS)
+		$(LD) $(LDSOFLAGS) -o $@ $(DBOBJ) @LIBS@
 
 install:	$(TARGETS) $(LIBPL)
 		mkdir -p $(DESTDIR)$(SOLIBDIR)
