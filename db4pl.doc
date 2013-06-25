@@ -40,6 +40,7 @@ Prolog terms in the database.
 \newpage
 
 \section{Introduction}
+\label{sec:db-intro}
 
 The native Prolog database is not very well suited for either {\em very}
 large data-sets or dynamically changing large data-sets that need to be
@@ -64,6 +65,7 @@ we plan to link this interface transparently to a predicate.
 
 
 \subsection{About this manual}
+\label{sec:db-about}
 
 This manual is by no means complete. The Berkeley DB documentation
 should be consulted directly to resolve details on security, resource
@@ -73,8 +75,10 @@ corresponding DB API calls, which should be consulted for details.
 
 
 \section{The DB interface}
+\label{sec:db-interface}
 
 \subsection{The overall picture}
+\label{sec:db-overview}
 
 Berkeley DB is an \jargon{embedded database}.  This implies the library
 provides access to a file containing one or more database tables.  The
@@ -95,6 +99,7 @@ Accessing a database consists of four steps:
 \end{enumerate}
 
 \subsection{Opening and closing a database}
+\label{sec:db-connections}
 
 \begin{description}
 \predicate{db_open}{4}{+File, +Mode, -DB, +Options}
@@ -143,6 +148,7 @@ Close BerkeleyDB database indicated by \arg{DB}.
 
 
 \subsection{Accessing a database}
+\label{sec:db-access}
 
 The predicates in this section are used to read and write the database.
 These predicate use a \arg{Key} and a \arg{Value}. These should satisfy
@@ -232,6 +238,7 @@ transactions and restart these automatically is a deadlock is raised:
 
 
 \subsection{Notes on signals and other interrupts}
+\label{sec:db-signals}
 
 The Berkeley DB routines are not signal-safe. Without precaution, this
 implies it is not possible to interrupt Prolog programs using the DB
@@ -247,6 +254,7 @@ handled gracefully.
 
 
 \subsection{Initialisation}
+\label{sec:db-init}
 
 Optionally, the DB environment may be initialised explicitely. Without
 initialisation,	the DB predicates may be used to access a database file
@@ -309,8 +317,10 @@ demands and are accessed by at most one application in update mode.
 
 
 \section{Installation}
+\label{sec:db-install}
 
 \subsection{DB version}
+\label{sec:db-version}
 
 This package was developed for DB version 3.1.  The interface of
 DB 3.x is fundamentally different from previous releases and db4pl
@@ -320,6 +330,7 @@ to install DB 3.1 or later before building db4pl.
 
 
 \subsection{Unix systems}
+\label{sec:db-install-unix}
 
 Installation on Unix system uses the commonly found {\em configure},
 {\em make} and {\em make install} sequence. SWI-Prolog should be
@@ -353,9 +364,6 @@ and the DB libraries.  For example:
 ./configure --with-db=/usr/local/BerkeleyDB.3.1
 \end{code}
 \end{description}
-
-%\subsection{Acknowledgements}
-
 
 \end{document}
 
