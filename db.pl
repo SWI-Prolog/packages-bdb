@@ -1,11 +1,10 @@
-/*  $Id$
-
-    Part of SWI-Prolog
+/*  Part of SWI-Prolog
 
     Author:        Jan Wielemaker
-    E-mail:        jan@swi.psy.uva.nl
+    E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (C): 1985-2002, University of Amsterdam
+    Copyright (C): 1985-2014, University of Amsterdam
+			      VU University Amsterdam
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -54,7 +53,13 @@ db_delall(DB, Key, Value) :-
 	;   true
 	).
 
-:- at_halt(db_closeall).
+terminate_db :-
+	(   current_predicate(db_closeall/0)
+	->  at_halt(db_closeall)
+	;   true
+	).
+
+:- at_halt(terminate_db).
 
 		 /*******************************
 		 *	       MESSAGES		*
