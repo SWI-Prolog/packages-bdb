@@ -45,6 +45,83 @@
 	  ]).
 :- use_foreign_library(foreign(db4pl)).
 
+/** <module> Berkeley DB interface
+
+This package realised external storage  of   Prolog  terms  based on the
+Berkeley          DB          library           from          [Sleepycat
+Software](http://www.sleepycat.com/). The DB library  implements modular
+support for the bottom layers of a   database.  The database itself maps
+unconstrained keys onto values. Both key and value are binary blobs.
+
+The SWI-Prolog interface for  DB  allows   for  fast  storage of general
+Prolog terms in the database.
+*/
+
+%%	db_open(+File, +Mode, -DB, +Options) is det.
+%
+%	Open File holding a database. Mode   is one of `read`, providing
+%	read-only  access  or  `update`,  providing  read/write  access.
+%	Options is a list of options. Supported options are:
+%
+%	  - duplicates(+Boolean)
+%	    Do/do not allow for duplicate values on the same key.
+%	    Default is not to allow for duplicates.
+%	  - database(+Name)
+%	    If File contains multiple databases, address the named
+%	    database in the file. A DB file can only consist of multiple
+%	    databases if the db_open/4 call that created it specified
+%	    this argument. Each database in the file has its own
+%	    characteristics.
+%	  - key(+Type)
+%	  - value(+Type)
+%	    Specify the type of the key or value. Allowed values are:
+%	    - term
+%	      Key/Value is a Prolog term (default). This type allows for
+%	      representing arbitrary Prolog data in both keys and value.
+%	      The representation is space-efficient, but Prolog
+%	      specific. See PL_record_external() in the SWI-Prolog
+%	      Reference Manual for details on the representation. The
+%	      other representations are more neutral. This implies they
+%	      are more stable and sharing the DB with other languages is
+%	      feasible.
+%	    - atom
+%	      Key/Value is an atom. The text is represented as a
+%	      UTF-8 string and its length.
+%	    - c_string
+%	      Key/Value is an atom. The text is represented as a C
+%	      0-terminated UTF-8 string.
+%	    - c_long
+%	      Key/Value is an integer. The value is represented as a
+%	      native C long in machine byte-order.
+%
+%	@arg DB is unified with a _blob_ of type `db`. Database handles
+%	are subject to atom garbage collection.
+
+%%	db_close(+DB) is det.
+%
+%	Close BerkeleyDB database indicated by DB. DB becomes invalid
+%	after this operation.  An attempt to access a closed database
+%	is detected reliably and results in a permission_error
+%	exception.
+
+%%	db_put(+DB, +Key, +Value) is semidet.
+%
+%	Add a new key-value pair to the database. If the database allows
+%	for duplicates this will always succeed,   unless a system error
+%	occurs.
+
+%%	db_del(+DB, ?Key, ?Value).
+%
+%	Delete the first matching key-value pair   from the database. If
+%	the  database  allows  for   duplicates,    this   predicate  is
+%	non-deterministic. The enumeration performed   by this predicate
+%	is the same as for db_get/3. See also db_delall/3.
+
+%%	db_delall(+DB, +Key, ?Value) is det.
+%
+%	Delete all matching key-value  pairs   from  the  database. With
+%	unbound Value the key and all values are removed efficiently.
+
 db_delall(DB, Key, Value) :-
 	var(Value), !,
 	db_del(DB, Key).		% this is much faster
@@ -54,9 +131,37 @@ db_delall(DB, Key, Value) :-
 	;   true
 	).
 
+%%	db_get(+DB, ?Key, -Value)
+%
+%	Query the database. If the database   allows for duplicates this
+%	predicate is non-deterministic. Note that if  Key is a term this
+%	matches stored keys that are _variants_ of Key. See =@=/2.
+
+%%	db_enum(+DB, -Key, -Value)
+%
+%	Enumerate the whole database, unifying   the  key-value pairs to
+%	Key and Value.  Though  this  predicate   can  be  used  with an
+%	instantiated Key to enumerate only the   keys unifying with Key,
+%	no indexing is used by db_enum/3.
+
+%%	db_getall(+DB, +Key, -Values) is semidet.
+%
+%	Get all values associated with Key. Fails   if  the key does not
+%	exist (as bagof/3).
+
+%%	db_current(?DB) is nondet.
+%
+%	True when DB is a handle to a currently open database.
+
 db_current(DB) :-
 	current_blob(DB, db),
 	db_is_open(DB).
+
+%%	db_closeall is det.
+%
+%	Close all currently open databases. This is called automatically
+%	after  loading  this  library  on  process  terminatation  using
+%	at_halt/1.
 
 db_closeall :-
 	forall(db_current(DB),
