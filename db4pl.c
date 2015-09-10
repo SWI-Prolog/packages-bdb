@@ -211,9 +211,9 @@ unify_dbt(term_t t, dtype type, DBT *dbt)
       return PL_unify(t, r);
     }
     case D_ATOM:
-      return PL_unify_atom_nchars(t, dbt->size, dbt->data);
+      return PL_unify_chars(t, PL_ATOM|REP_UTF8, dbt->size, dbt->data);
     case D_CSTRING:
-      return PL_unify_atom_chars(t, dbt->data);
+      return PL_unify_chars(t, PL_ATOM|REP_UTF8, (size_t)-1, dbt->data);
     case D_CLONG:
     { long *v = dbt->data;
       return PL_unify_integer(t, *v);
@@ -240,25 +240,27 @@ get_dbt(term_t t, dtype type, DBT *dbt)
     { size_t len;
       char *s;
 
-      if ( PL_get_atom_nchars(t, &len, &s) )
+      if ( PL_get_nchars(t, &len, &s,
+			 CVT_ATOM|CVT_EXCEPTION|REP_UTF8|BUF_MALLOC) )
       { dbt->data = s;
 	dbt->size = len;
 
 	return TRUE;
-      }
-      return pl_error(ERR_TYPE, "atom", t);
+      } else
+	return FALSE;
     }
     case D_CSTRING:
     { size_t len;
       char *s;
 
-      if ( PL_get_atom_nchars(t, &len, &s) )
+      if ( PL_get_nchars(t, &len, &s,
+			 CVT_ATOM|CVT_STRING|CVT_EXCEPTION|REP_UTF8|BUF_MALLOC) )
       { dbt->data = s;
 	dbt->size = len+1;		/* account for terminator */
 
 	return TRUE;
-      }
-      return pl_error(ERR_TYPE, "atom", t);
+      } else
+	return FALSE;
     }
     case D_CLONG:
     { long v;
@@ -285,10 +287,11 @@ free_dbt(DBT *dbt, dtype type)
 { switch ( type )
   { case D_TERM:
       PL_erase_external(dbt->data);
-      return;
+      break;
     case D_ATOM:
     case D_CSTRING:
-      return;
+      PL_free(dbt->data);
+      break;
     case D_CLONG:
       free(dbt->data);
   }
@@ -330,8 +333,8 @@ db_type(term_t t, int *type)
 
       _PL_get_arg(1, head, a0);
 
-      if ( !PL_get_atom(a0, &tp) )
-	return pl_error(ERR_TYPE, "atom", a0);
+      if ( !PL_get_atom_ex(a0, &tp) )
+	return FALSE;
       if ( tp == ATOM_btree )
 	*type = DB_BTREE;
       else if ( tp == ATOM_hash )
@@ -341,7 +344,7 @@ db_type(term_t t, int *type)
       else if ( tp == ATOM_unknown )
 	*type = DB_UNKNOWN;
       else
-	return pl_error(ERR_DOMAIN, "db_type", a0);
+	return PL_domain_error("db_type", a0);
 
       return TRUE;
     }
@@ -355,8 +358,8 @@ static int
 get_dtype(term_t t, dtype *type)
 { atom_t a;
 
-  if ( !PL_get_atom(t, &a) )
-    return pl_error(ERR_TYPE, "atom", t);
+  if ( !PL_get_atom_ex(t, &a) )
+    return FALSE;
   if ( a == ATOM_term )
     *type = D_TERM;
   else if ( a == ATOM_atom )
@@ -366,7 +369,7 @@ get_dtype(term_t t, dtype *type)
   else if ( a == ATOM_c_long )
     *type = D_CLONG;
   else
-    return pl_error(ERR_DOMAIN, "type", t);
+    return PL_domain_error("type", t);
 
   return TRUE;
 }
@@ -413,14 +416,14 @@ db_options(term_t t, dbh *dbh, char **subdb)
 	} else if ( name == ATOM_type )
 	    ;  /* skip [ ... type(_) ... ]  because it's handled by db_type */
 	else
-	    return pl_error(ERR_DOMAIN, "db_option", head);
+	    return PL_domain_error("db_option", head);
       } else
-	  return pl_error(ERR_DOMAIN, "db_option", head);
+	  return PL_domain_error("db_option", head);
     }
   }
 
-  if ( !PL_get_nil(tail) )
-    return pl_error(ERR_TYPE, "list", t);
+  if ( !PL_get_nil_ex(tail) )
+    return FALSE;
 
   if ( flags )
   { int rval;
@@ -445,17 +448,17 @@ pl_db_open(term_t file, term_t mode, term_t handle, term_t options)
   int rval;
   char *subdb = NULL;
 
-  if ( !PL_get_atom_chars(file, &fname) )
-    return pl_error(ERR_TYPE, "atom", file);
+  if ( !PL_get_file_name(file, &fname, PL_FILE_OSPATH) )
+    return FALSE;
 
-  if ( !PL_get_atom(mode, &a) )		/* process mode */
-    return pl_error(ERR_TYPE, "atom", mode);
+  if ( !PL_get_atom_ex(mode, &a) )		/* process mode */
+    return FALSE;
   if ( a == ATOM_read )
     flags = DB_RDONLY;
   else if ( a == ATOM_update )
     flags = DB_CREATE;
   else
-    return pl_error(ERR_DOMAIN, "io_mode", mode);
+    return PL_domain_error("io_mode", mode);
 
   dbh = calloc(1, sizeof(*dbh));
   dbh->magic = DBH_MAGIC;
@@ -467,7 +470,9 @@ pl_db_open(term_t file, term_t mode, term_t handle, term_t options)
 
   if ( !db_type(options, &type) ||
        !db_options(options, dbh, &subdb) )
+  { dbh->db->close(dbh->db, 0);
     return FALSE;
+  }
 
 #ifdef DB41
   if ( opt_transactions )
@@ -1106,8 +1111,9 @@ get_server(term_t options, server_info *info)
       { term_t a = PL_new_term_ref();
 
 	_PL_get_arg(1, h, a);
-	if ( !PL_get_atom_chars(a, &info->host) )
-	  return pl_error(ERR_TYPE, "atom", a);
+	if ( !PL_get_chars(a, &info->host,
+			   CVT_ATOM|CVT_STRING|REP_MB|CVT_EXCEPTION) )
+	  return FALSE;
       }
       if ( arity == 2 )			/* server(host, options) */
       { term_t a = PL_new_term_ref();
@@ -1127,12 +1133,12 @@ get_server(term_t options, server_info *info)
 	    { if ( !PL_get_long_ex(a, &info->cl_timeout) )
 		return FALSE;
 	    } else
-	      return pl_error(ERR_DOMAIN, "server_option", a);
+	      return PL_domain_error("server_option", a);
 	  } else
-	    return pl_error(ERR_DOMAIN, "server_option", a);
+	    return PL_domain_error("server_option", a);
 	}
-	if ( !PL_get_nil(l) )
-	  return pl_error(ERR_TYPE, "list", a);
+	if ( !PL_get_nil_ex(l) )
+	  return FALSE;
       }
 
       return TRUE;
@@ -1202,7 +1208,7 @@ pl_db_init(term_t option_list)
     int arity;
 
     if ( !PL_get_name_arity(head, &name, &arity) )
-      return pl_error(ERR_TYPE, "option", head);
+      return PL_type_error("option", head);
     if ( arity == 1 )
     { _PL_get_arg(1, head, a);
 
@@ -1264,7 +1270,7 @@ pl_db_init(term_t option_list)
 	  char *v;
 
 	  if ( !PL_get_name_arity(h, &nm, &ar) || ar !=	1 )
-	    return pl_error(ERR_TYPE, "db_config", h);
+	    return PL_domain_error("db_config", h);
 	  _PL_get_arg(1, h, a2);
 	  if ( !PL_get_chars(a2, &v, CVT_ATOM|CVT_STRING|CVT_EXCEPTION) )
 	    return FALSE;
@@ -1275,16 +1281,16 @@ pl_db_init(term_t option_list)
 	  strcat(config[nconf], v);
 	  config[++nconf] = NULL;
 	}
-	if ( !PL_get_nil(a) )
-	  return pl_error(ERR_TYPE, "list", a);
+	if ( !PL_get_nil_ex(a) )
+	  return FALSE;
       } else
-	return pl_error(ERR_DOMAIN, "db_option", head);
+	return PL_domain_error("db_option", head);
     } else
-      return pl_error(ERR_TYPE, "option", head);
+      return PL_domain_error("option", head);
   }
 
-  if ( !PL_get_nil(options) )
-    return pl_error(ERR_TYPE, "list", options);
+  if ( !PL_get_nil_ex(options) )
+    return FALSE;
 
   if ( (rval=db_env->open(db_env, home, flags, 0666)) != 0 )
     return db_status(rval);
