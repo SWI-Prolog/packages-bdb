@@ -73,7 +73,6 @@ static atom_t ATOM_server;
 static atom_t ATOM_server_timeout;
 static atom_t ATOM_client_timeout;
 
-static functor_t FUNCTOR_db1;
 static functor_t FUNCTOR_type1;
 
 static DB_ENV *db_env;			/* default environment */
@@ -133,7 +132,6 @@ initConstants(void)
   ATOM_server_timeout =	PL_new_atom("server_timeout");
   ATOM_client_timeout =	PL_new_atom("client_timeout");
 
-  FUNCTOR_db1	      =	mkfunctor("$db", 1);
   FUNCTOR_type1	      =	mkfunctor("type", 1);
 }
 
