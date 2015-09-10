@@ -85,8 +85,6 @@ static int     opt_transactions;	/* are transactions enabled? */
 TBD: Thread-safe version
 
 	- Deal with transactions and threads
-	- Safe register/unregister
-
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
 #ifdef WIN32
