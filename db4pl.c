@@ -513,7 +513,7 @@ pl_db_close(term_t handle)
 
 
 static void
-db_closeall()
+db_closeall(void)
 { db_list *l, *n;
 
   for(l=dbs; l; l=n)
@@ -535,7 +535,7 @@ db_closeall()
 
 
 static foreign_t
-pl_db_closeall()
+pl_db_closeall(void)
 { db_list *l, *n;
 
   for(l=dbs; l; l=n)
