@@ -37,6 +37,7 @@
 
 :- use_module(library(db)).
 :- use_module(library(plunit)).
+:- use_module(library(debug)).
 :- use_module(library(lists)).
 
 test_db :-
@@ -55,7 +56,8 @@ data(list,	     [aap, noot, mies]).
 data(compound,	     f(a)).
 data(vars_shared,    f(A,A)).
 data(vars_nshared,   f(_,_)).
-data(dict,	     d{x:42, y:20}).
+data(cycle,	     X) :- X = f(X).
+%data(dict,	     d{x:42, y:20}).	% BUG in PL_record_external()
 
 delete_existing_file(File) :-
 	exists_file(File), !,
@@ -72,6 +74,24 @@ test(loop, PairsOut =@= PairsIn) :-
 	forall(member(Type-Data, PairsIn),
 	       db_put(DB, Type, Data)),
 	setof(Type-Data, db_enum(DB, Type, Data), PairsOut),
+	db_close(DB),
+	delete_existing_file(DBFile).
+test(no_duplicates, true) :-
+	DBFile = 'test.db',
+	delete_existing_file(DBFile),
+	db_open(DBFile, update, DB, [duplicates(false)]),
+	db_put(DB, aap, noot),
+	assertion(\+ db_put(DB, aap, mies)),
+	db_close(DB),
+	delete_existing_file(DBFile).
+test(duplicates, Out == [1,2,3,4,5,6,7,8,9,10]) :-
+	DBFile = 'test.db',
+	delete_existing_file(DBFile),
+	db_open(DBFile, update, DB, [duplicates(true)]),
+	forall(between(1, 10, X),
+	       forall(between(1, 10, Y),
+		      db_put(DB, X, Y))),
+	db_getall(DB, 5, Out),
 	db_close(DB),
 	delete_existing_file(DBFile).
 
