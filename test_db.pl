@@ -37,11 +37,42 @@
 
 :- use_module(library(db)).
 :- use_module(library(plunit)).
+:- use_module(library(lists)).
 
 test_db :-
 	run_tests([ db
 		  ]).
 
+data(var,	     _).
+data(int,	     42).
+data(bigint,	     343786473836435678).
+data(atom,	     'aap').
+data(atom_unicode,   'aa\u0410p').
+data(atom_nul,	     'aa\u0000p').
+data(string_unicode, "aa\u0410p").
+data(string_nul,     "aa\u0000p").
+data(list,	     [aap, noot, mies]).
+data(compound,	     f(a)).
+data(vars_shared,    f(A,A)).
+data(vars_nshared,   f(_,_)).
+data(dict,	     d{x:42, y:20}).
+
+delete_existing_file(File) :-
+	exists_file(File), !,
+	delete_file(File).
+delete_existing_file(_).
+
 :- begin_tests(db).
+
+test(loop, PairsOut =@= PairsIn) :-
+	DBFile = 'test.db',
+	delete_existing_file(DBFile),
+	setof(Type-Data, data(Type, Data), PairsIn),
+	db_open(DBFile, update, DB, []),
+	forall(member(Type-Data, PairsIn),
+	       db_put(DB, Type, Data)),
+	setof(Type-Data, db_enum(DB, Type, Data), PairsOut),
+	db_close(DB),
+	delete_existing_file(DBFile).
 
 :- end_tests(db).
