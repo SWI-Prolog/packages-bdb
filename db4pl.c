@@ -263,7 +263,7 @@ get_dbt(term_t t, dtype type, DBT *dbt)
     case D_CLONG:
     { long v;
 
-      if ( PL_get_long(t, &v) )
+      if ( PL_get_long_ex(t, &v) )
       {	long *d = malloc(sizeof(long));
 
 	*d = v;
@@ -271,8 +271,8 @@ get_dbt(term_t t, dtype type, DBT *dbt)
 	dbt->size = sizeof(long);
 
 	return TRUE;
-      }
-      return pl_error(ERR_TYPE, "integer", t);
+      } else
+	return FALSE;
     }
   }
   assert(0);
@@ -292,47 +292,6 @@ free_dbt(DBT *dbt, dtype type)
     case D_CLONG:
       free(dbt->data);
   }
-}
-
-
-static int
-get_bool_ex(term_t t, int *v)
-{ atom_t a;
-
-  if ( PL_get_atom(t, &a) )
-  { if ( a == ATOM_true )
-    { *v = TRUE;
-      return TRUE;
-    }
-    if ( a == ATOM_false )
-    { *v = FALSE;
-      return TRUE;
-    }
-  }
-
-  return pl_error(ERR_TYPE, "bool", t);
-}
-
-
-static int
-get_long_ex(term_t t, long *v)
-{ if ( PL_get_long(t, v) )
-    return TRUE;
-
-  return pl_error(ERR_TYPE, "integer", t);
-}
-
-
-static int
-get_size_ex(term_t t, long *v)
-{ if ( get_long_ex(t, v) )
-  { if ( *v >= 0 )
-      return TRUE;
-
-    return pl_error(ERR_DOMAIN, "not_less_than_zero", t);
-  }
-
-  return FALSE;
 }
 
 
@@ -443,7 +402,7 @@ db_options(term_t t, dbh *dbh, char **subdb)
 	if ( name == ATOM_duplicates )
 	{ int v;
 
-	  if ( !get_bool_ex(a0, &v) )
+	  if ( !PL_get_bool_ex(a0, &v) )
 	    return FALSE;
 
 	  if ( v )
@@ -1170,10 +1129,10 @@ get_server(term_t options, server_info *info)
 	  { _PL_get_arg(1, h, a);
 
 	    if ( name == ATOM_server_timeout )
-	    { if ( !get_long_ex(a, &info->sv_timeout) )
+	    { if ( !PL_get_long_ex(a, &info->sv_timeout) )
 		return FALSE;
 	    } else if ( name == ATOM_client_timeout )
-	    { if ( !get_long_ex(a, &info->cl_timeout) )
+	    { if ( !PL_get_long_ex(a, &info->cl_timeout) )
 		return FALSE;
 	    } else
 	      return pl_error(ERR_DOMAIN, "server_option", a);
@@ -1253,17 +1212,19 @@ pl_db_init(term_t option_list)
     if ( !PL_get_name_arity(head, &name, &arity) )
       return pl_error(ERR_TYPE, "option", head);
     if ( arity == 1 )
-    { long v;
-
-      _PL_get_arg(1, head, a);
+    { _PL_get_arg(1, head, a);
 
       if ( name == ATOM_mp_mmapsize )	/* mp_mmapsize */
-      { if ( !get_size_ex(a, &v) )
+      { size_t v;
+
+	if ( !PL_get_size_ex(a, &v) )
 	  return FALSE;
 	db_env->set_mp_mmapsize(db_env, v);
 	flags |= DB_INIT_MPOOL;
       } else if ( name == ATOM_mp_size ) /* mp_size */
-      { if ( !get_size_ex(a, &v) )
+      { size_t v;
+
+	if ( !PL_get_size_ex(a, &v) )
 	  return FALSE;
 	db_env->set_cachesize(db_env, 0, v, 0);
 	flags |= DB_INIT_MPOOL;
@@ -1273,21 +1234,21 @@ pl_db_init(term_t option_list)
       } else if ( name == ATOM_locking ) /* locking */
       {	int v;
 
-	if ( !get_bool_ex(a, &v) )
+	if ( !PL_get_bool_ex(a, &v) )
 	  return FALSE;
 	if ( v )
 	  flags |= DB_INIT_LOCK;
       } else if ( name == ATOM_logging ) /* logging */
       {	int v;
 
-	if ( !get_bool_ex(a, &v) )
+	if ( !PL_get_bool_ex(a, &v) )
 	  return FALSE;
 	if ( v )
 	  flags |= DB_INIT_LOG;
       } else if ( name == ATOM_transactions )	/* transactions */
       {	int v;
 
-	if ( !get_bool_ex(a, &v) )
+	if ( !PL_get_bool_ex(a, &v) )
 	  return FALSE;
 	if ( v )
 	{ flags |= (DB_INIT_TXN|DB_INIT_MPOOL|DB_INIT_LOCK|DB_INIT_LOG);
@@ -1296,7 +1257,7 @@ pl_db_init(term_t option_list)
       } else if ( name == ATOM_create )	/* Create files */
       {	int v;
 
-	if ( !get_bool_ex(a, &v) )
+	if ( !PL_get_bool_ex(a, &v) )
 	  return FALSE;
 	if ( v )
 	  flags |= DB_CREATE;
