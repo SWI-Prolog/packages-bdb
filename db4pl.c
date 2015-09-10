@@ -295,15 +295,6 @@ free_dbt(DBT *dbt, dtype type)
 }
 
 
-static int
-get_chars_ex(term_t t, char **s)
-{ if ( PL_get_atom_chars(t, s) )
-    return TRUE;
-
-  return pl_error(ERR_TYPE, "atom", t);
-}
-
-
 int
 db_status(int rval)
 { switch( rval )
@@ -410,7 +401,8 @@ db_options(term_t t, dbh *dbh, char **subdb)
 	    dbh->duplicates = TRUE;
 	  }
 	} else if ( name == ATOM_database )
-	{ if ( !get_chars_ex(a0, subdb) )
+	{ if ( !PL_get_chars(a0, subdb,
+			     CVT_ATOM|CVT_STRING|CVT_EXCEPTION|REP_UTF8) )
 	    return FALSE;
 	} else if ( name == ATOM_key )
 	{ if ( !get_dtype(a0, &dbh->key_type) )
@@ -1229,7 +1221,7 @@ pl_db_init(term_t option_list)
 	db_env->set_cachesize(db_env, 0, v, 0);
 	flags |= DB_INIT_MPOOL;
       } else if ( name == ATOM_home )	/* db_home */
-      {	if ( !get_chars_ex(a, &home) )
+      {	if ( !PL_get_chars(a, &home, CVT_ATOM|CVT_STRING|CVT_EXCEPTION|REP_MB) )
 	  return FALSE;
       } else if ( name == ATOM_locking ) /* locking */
       {	int v;
@@ -1274,7 +1266,7 @@ pl_db_init(term_t option_list)
 	  if ( !PL_get_name_arity(h, &nm, &ar) || ar !=	1 )
 	    return pl_error(ERR_TYPE, "db_config", h);
 	  _PL_get_arg(1, h, a2);
-	  if ( !get_chars_ex(a2, &v) )
+	  if ( !PL_get_chars(a2, &v, CVT_ATOM|CVT_STRING|CVT_EXCEPTION) )
 	    return FALSE;
 	  n = PL_atom_chars(nm);
 	  config[nconf] = malloc(strlen(n)+strlen(v)+2);
