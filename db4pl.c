@@ -141,65 +141,95 @@ initConstants(void)
 
 static void cleanup(void);
 
-typedef struct _db_list
-{ dbh	*db;
-  struct _db_list *next;
-} db_list;
 
-static db_list *dbs;			/* open DB's */
+		 /*******************************
+		 *	  SYMBOL WRAPPER	*
+		 *******************************/
 
 static void
-register_db(dbh *db)
-{ db_list *l = calloc(1, sizeof(*l));
-
-  l->db = db;
-  l->next = dbs;
-  dbs = l;
-}
-
-
-static void
-unregister_db(dbh *db)
-{ db_list **p = &dbs;
-
-  for(; *p; p = &(*p)->next)
-  { if ( (*p)->db == db )
-    { db_list *l = *p;
-
-      *p = l->next;
-      free(l);
-      return;
-    }
-  }
+acquire_db(atom_t symbol)
+{ dbh *db = PL_blob_data(symbol, NULL, NULL);
+  db->symbol = symbol;
 }
 
 
 static int
-unify_db(term_t t, dbh *db)
-{ return PL_unify_term(t, PL_FUNCTOR, FUNCTOR_db1,
-		         PL_POINTER, db);
+release_db(atom_t symbol)
+{ dbh *db = PL_blob_data(symbol, NULL, NULL);
+  DB *d;
+
+  if ( (d=db->db) )
+  { db->db = NULL;
+    d->close(d, 0);
+  }
+
+  PL_free(db);
+
+  return TRUE;
 }
+
+static int
+compare_dbs(atom_t a, atom_t b)
+{ dbh *ara = PL_blob_data(a, NULL, NULL);
+  dbh *arb = PL_blob_data(b, NULL, NULL);
+
+  return ( ara > arb ?  1 :
+	   ara < arb ? -1 : 0
+	 );
+}
+
+static int
+write_db(IOSTREAM *s, atom_t symbol, int flags)
+{ dbh *db = PL_blob_data(symbol, NULL, NULL);
+
+  Sfprintf(s, "<db>(%p)", db);
+
+  return TRUE;
+}
+
+static PL_blob_t db_blob =
+{ PL_BLOB_MAGIC,
+  PL_BLOB_NOCOPY,
+  "db",
+  release_db,
+  compare_dbs,
+  write_db,
+  acquire_db
+};
 
 
 static int
 get_db(term_t t, dbh **db)
-{ if ( PL_is_functor(t, FUNCTOR_db1) )
-  { term_t a = PL_new_term_ref();
-    void *ptr;
+{ PL_blob_t *type;
+  void *data;
 
-    _PL_get_arg(1, t, a);
-    if ( PL_get_pointer(a, &ptr) )
-    { if ( ((dbh *)ptr)->magic != DBH_MAGIC )
-	return pl_error(ERR_EXISTENCE, "db", t);
+  if ( PL_get_blob(t, &data, NULL, &type) && type == &db_blob)
+  { dbh *p = data;
 
-      *db = ptr;
+    if ( p->symbol )
+    { *db = p;
+
       return TRUE;
     }
+
+    PL_permission_error("access", "closed_db", t);
+    return FALSE;
   }
 
-  return pl_error(ERR_TYPE, "db", t);
+  return PL_type_error("db", t);
 }
 
+
+
+
+static int
+unify_db(term_t t, dbh *db)
+{ return PL_unify_blob(t, db, sizeof(*db), &db_blob);
+}
+
+		 /*******************************
+		 *	   DATA EXCHANGE	*
+		 *******************************/
 
 static int
 unify_dbt(term_t t, dtype type, DBT *dbt)
@@ -487,7 +517,6 @@ pl_db_open(term_t file, term_t mode, term_t handle, term_t options)
     return db_status(rval);
   }
 
-  register_db(dbh);
   return unify_db(handle, dbh);
 }
 
@@ -501,9 +530,7 @@ pl_db_close(term_t handle)
 
     DEBUG(Sdprintf("Close DB at %p\n", db->db));
     NOSIG(rval = db->db->close(db->db, 0);
-	  unregister_db(db);
-	  db->magic = 0;
-	  free(db));
+	  db->symbol = 0);
 
     return db_status(rval);
   }
@@ -511,50 +538,21 @@ pl_db_close(term_t handle)
   return FALSE;
 }
 
-
-static void
-db_closeall(void)
-{ db_list *l, *n;
-
-  for(l=dbs; l; l=n)
-  { int rval;
-
-    n = l->next;
-
-    NOSIG(rval = l->db->db->close(l->db->db, 0);
-	  l->db->magic = 0;
-	  unregister_db(l->db));
-    if ( rval )
-      Sdprintf("DB: DB close failed: %s\n", db_strerror(rval));
-  }
-
-  assert(dbs == NULL);
-
-  cleanup();
-}
-
-
 static foreign_t
-pl_db_closeall(void)
-{ db_list *l, *n;
+pl_db_is_open(term_t t)
+{ PL_blob_t *type;
+  void *data;
 
-  for(l=dbs; l; l=n)
-  { int rval;
+  if ( PL_get_blob(t, &data, NULL, &type) && type == &db_blob)
+  { dbh *p = data;
 
-    n = l->next;
+    if ( p->symbol )
+      return TRUE;
 
-    NOSIG(rval = l->db->db->close(l->db->db, 0);
-	  l->db->magic = 0;
-	  unregister_db(l->db));
-    if ( rval )
-      return db_status(rval);
+    return FALSE;
   }
 
-  assert(dbs == NULL);
-
-  cleanup();
-
-  return TRUE;
+  return PL_type_error("db", t);
 }
 
 
@@ -1295,11 +1293,15 @@ pl_db_init(term_t option_list)
   if ( (rval=db_env->open(db_env, home, flags, 0666)) != 0 )
     return db_status(rval);
 
-  atexit(db_closeall);
-
   return TRUE;
 }
 
+static foreign_t
+pl_db_exit(void)
+{ cleanup();
+
+  return TRUE;
+}
 
 
 		 /*******************************
@@ -1339,7 +1341,7 @@ install(void)
 
   PL_register_foreign("db_open",   4, pl_db_open,   0);
   PL_register_foreign("db_close",  1, pl_db_close,  0);
-  PL_register_foreign("db_closeall", 0, pl_db_closeall,  0);
+  PL_register_foreign("db_is_open",1, pl_db_is_open,0);
   PL_register_foreign("db_put",    3, pl_db_put,    0);
   PL_register_foreign("db_del",    2, pl_db_del2,   0);
   PL_register_foreign("db_del",    3, pl_db_del3,   PL_FA_NONDETERMINISTIC);
@@ -1347,6 +1349,7 @@ install(void)
   PL_register_foreign("db_get",    3, pl_db_get,    PL_FA_NONDETERMINISTIC);
   PL_register_foreign("db_enum",   3, pl_db_enum,   PL_FA_NONDETERMINISTIC);
   PL_register_foreign("db_init",   1, pl_db_init,   0);
+  PL_register_foreign("db_exit",   0, pl_db_exit,   0);
   PL_register_foreign("db_transaction", 1, pl_db_transaction,
 						    PL_FA_TRANSPARENT);
 

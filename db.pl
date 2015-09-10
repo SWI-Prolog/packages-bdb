@@ -3,7 +3,7 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (C): 1985-2014, University of Amsterdam
+    Copyright (C): 2000-2015, University of Amsterdam
 			      VU University Amsterdam
 
     This program is free software; you can redistribute it and/or
@@ -32,6 +32,7 @@
 	  [ db_open/4,			% +File, +Mode, -Handle, +Options
 	    db_close/1,			% +Handle
 	    db_closeall/0,		%
+	    db_current/1,		% -DB
 	    db_put/3,			% +DB, +Key, +Value
 	    db_del/3,			% +DB, +Key, ?Value
 	    db_delall/3,		% +DB, +Key, +Value
@@ -53,9 +54,20 @@ db_delall(DB, Key, Value) :-
 	;   true
 	).
 
+db_current(DB) :-
+	current_blob(DB, db),
+	db_is_open(DB).
+
+db_closeall :-
+	forall(db_current(DB),
+	       catch(db_close(DB),
+		     E,
+		     print_message(warning, E))).
+
 terminate_db :-
-	(   current_predicate(db_closeall/0)
-	->  at_halt(db_closeall)
+	(   current_predicate(db_exit/0)	% library was loaded ok
+	->  db_closeall,
+	    catch(db_exit, E, print_message(warning, E))
 	;   true
 	).
 

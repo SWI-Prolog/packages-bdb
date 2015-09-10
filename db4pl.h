@@ -52,9 +52,10 @@ typedef enum
 } dtype;
 
 typedef struct
-{ int	magic;				/* DBH_MAGIC */
-  DB *db;				/* the database */
+{ DB *db;				/* the database */
 
+  atom_t symbol;			/* <db>(...)  */
+  int	magic;				/* DBH_MAGIC */
   int	duplicates;			/* Duplicates allowed? */
   dtype	key_type;			/* type of the key */
   dtype value_type;			/* type of the data */
