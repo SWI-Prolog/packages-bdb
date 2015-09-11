@@ -76,8 +76,8 @@ static atom_t ATOM_client_timeout;
 
 static functor_t FUNCTOR_type1;
 
-static DB_ENV *db_env;			/* default environment */
-static int     opt_transactions;	/* are transactions enabled? */
+static DB_ENV   *db_env;		/* default environment */
+static u_int32_t db_flags;		/* Create flag for db_env */
 
 #define mkfunctor(n, a) PL_new_functor(PL_new_atom(n), a)
 
@@ -502,7 +502,7 @@ pl_db_open(term_t file, term_t mode, term_t handle, term_t options)
   }
 
 #ifdef DB41
-  if ( opt_transactions )
+  if ( (db_flags&DB_INIT_TXN) )
     flags |= DB_AUTO_COMMIT;
   NOSIG(rval=dbh->db->open(dbh->db, NULL, fname, subdb, type, flags, m));
 #else
@@ -595,7 +595,7 @@ free_transaction_stack(void *ptr)
 
 static int
 begin_transaction(transaction *t)
-{ if ( db_env )
+{ if ( db_env && (db_flags&DB_INIT_TXN) )
   { int rval;
     DB_TXN *pid, *tid;
     transaction_stack *stack;
@@ -1072,8 +1072,8 @@ cleanup(void)
     if ( (rval=db_env->close(db_env, 0)) )
       Sdprintf("DB: ENV close failed: %s\n", db_strerror(rval));
 
-    db_env = NULL;
-    opt_transactions = FALSE;
+    db_env   = NULL;
+    db_flags = 0;
   }
 }
 
@@ -1343,8 +1343,7 @@ pl_db_init(term_t option_list)
 
   if ( (rval=db_env->open(db_env, home, flags, 0666)) != 0 )
     goto db_error;
-  if ( flags & DB_INIT_TXN )
-    opt_transactions = TRUE;
+  db_flags = flags;
 
   if ( !rval )
     return TRUE;
