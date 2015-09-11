@@ -26,6 +26,7 @@
 #endif
 
 #include <SWI-Stream.h>
+#include <pthread.h>
 #include "db4pl.h"
 #include <sys/types.h>
 #include <limits.h>
@@ -556,41 +557,63 @@ pl_db_is_open(term_t t)
 		 *	   TRANSACTIONS		*
 		 *******************************/
 
-/* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-NOTE: as of 4.2 txn_begin(), txn_commit()  and txn_abort() are no longer
-available as functions but as memberfunctions of DB_ENV. If I understand
-the docs correctly this was already possible for older versions as well.
+static pthread_key_t transaction_key;
 
-If there are troubles  with  older  versions   we  must  handle  this in
-configure.
-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
-
-typedef struct _transaction
+typedef struct transaction
 { DB_TXN *tid;				/* transaction id */
-  struct _transaction *parent;		/* parent id */
+  struct transaction *parent;		/* parent id */
 } transaction;
 
-static transaction *transaction_stack;
+typedef struct transaction_stack
+{ transaction *top;
+} transaction_stack;
+
+static transaction_stack *
+my_tr_stack(void)
+{ transaction_stack *stack;
+
+  if ( (stack=pthread_getspecific(transaction_key)) )
+    return stack;
+
+  if ( (stack=calloc(1,sizeof(*stack))) )
+  { pthread_setspecific(transaction_key, stack);
+    return stack;
+  }
+
+  PL_resource_error("memory");
+  return NULL;
+}
+
+static void
+free_transaction_stack(void *ptr)
+{ transaction_stack *stack = ptr;
+
+  assert(stack->top == NULL);
+  free(stack);
+}
+
 
 static int
-begin_transaction(void)
+begin_transaction(transaction *t)
 { if ( db_env )
   { int rval;
     DB_TXN *pid, *tid;
-    transaction *t;
+    transaction_stack *stack;
 
-    if ( transaction_stack )
-      pid = transaction_stack->tid;
+    if ( !(stack=my_tr_stack()) )
+      return FALSE;
+
+    if ( stack->top )
+      pid = stack->top->tid;
     else
       pid = NULL;
 
     if ( (rval=db_env->txn_begin(db_env, pid, &tid, 0)) )
       return db_status(rval);
 
-    t = malloc(sizeof(*t));
-    t->parent = transaction_stack;
+    t->parent = stack->top;
     t->tid = tid;
-    transaction_stack = t;
+    stack->top = t;
 
     return TRUE;
   }
@@ -601,51 +624,46 @@ begin_transaction(void)
 
 
 static int
-commit_transaction(void)
-{ transaction *t;
+commit_transaction(transaction *t)
+{ transaction_stack *stack = my_tr_stack();
+  int rval;
 
-  if ( (t=transaction_stack) )
-  { DB_TXN *tid = t->tid;
-    int rval;
+  assert(stack);
+  assert(stack->top == t);
 
-    transaction_stack = t->parent;
-    free(t);
+  stack->top = t->parent;
 
-    if ( (rval=tid->commit(tid, 0)) ) /* was txn_commit(tid, 0) */
-      return db_status(rval);
+  if ( (rval=t->tid->commit(t->tid, 0)) )
+    return db_status(rval);
 
-    return TRUE;
-  }
-
-  return pl_error(ERR_PACKAGE_INT, "db", 0, "No transactions");
+  return TRUE;
 }
 
 
 static int
-abort_transaction(void)
-{ transaction *t;
+abort_transaction(transaction *t)
+{ transaction_stack *stack = my_tr_stack();
+  int rval;
 
-  if ( (t=transaction_stack) )
-  { DB_TXN *tid = t->tid;
-    int rval;
+  assert(stack);
+  assert(stack->top == t);
 
-    transaction_stack = t->parent;
-    free(t);
+  stack->top = t->parent;
 
-    if ( (rval=tid->abort(tid)) )	/* was txn_abort(tid) */
-      return db_status(rval);
+  if ( (rval=t->tid->abort(t->tid)) )
+    return db_status(rval);
 
-    return TRUE;
-  }
-
-  return pl_error(ERR_PACKAGE_INT, "db", 0, "No transactions");
+  return TRUE;
 }
 
 
 static DB_TXN *
 current_transaction(void)
-{ if ( transaction_stack )
-    return transaction_stack->tid;
+{ transaction_stack *stack;
+
+  if ( (stack=pthread_getspecific(transaction_key)) &&
+       stack->top )
+    return stack->top->tid;
 
   return NULL;
 }
@@ -656,11 +674,12 @@ pl_db_transaction(term_t goal)
 { static predicate_t call1;
   qid_t qid;
   int rval;
+  struct transaction tr;
 
   if ( !call1 )
     call1 = PL_predicate("call", 1, "user");
 
-  NOSIG(rval=begin_transaction());
+  NOSIG(rval=begin_transaction(&tr));
   if ( !rval )
     return FALSE;
 
@@ -668,14 +687,14 @@ pl_db_transaction(term_t goal)
   rval = PL_next_solution(qid);
   if ( rval )
   { PL_cut_query(qid);
-    NOSIG(rval=commit_transaction());
+    NOSIG(rval=commit_transaction(&tr));
     return rval;
   } else
   { term_t ex = PL_exception(qid);
 
     PL_cut_query(qid);
 
-    NOSIG(rval=abort_transaction());
+    NOSIG(rval=abort_transaction(&tr));
     if ( !rval )
       return FALSE;
 
@@ -1350,10 +1369,16 @@ install(void)
 						    PL_FA_TRANSPARENT);
 
   PL_register_foreign("db_atom",  3, pl_db_atom,  0);
+
+  pthread_key_create(&transaction_key, free_transaction_stack);
 }
 
 
 install_t
 uninstall(void)
-{ cleanup();
+{ if ( transaction_key )
+  { pthread_key_delete(transaction_key);
+    transaction_key = 0;
+  }
+  cleanup();
 }
