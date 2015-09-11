@@ -83,41 +83,46 @@ Accessing a database consists of four steps:
 %	currently supported are listed below.  For details, please refer
 %	to the DB manual.
 %
+%	  - create(+Bool)
+%	    If `true`, create any underlying file as required. By
+%	    default, no new files are created. This option should be
+%	    set for prograns that create new databases.
 %	  - home(+Home)
 %	    Specify the DB home directory, the directory holding the
 %	    database files.
+%	  - mp_size(+Integer)
+%	  - mp_mmapsize(+Integer)
+%	    Control memory pool handling (=DB_INIT_MPOOL=). The
+%	    `mp_size` option sets the memory-pool used for
+%	    caching, while the `mp_mmapsize` controls the maximum size
+%	    of a DB file mapped entirely into memory.
+%	  - locking(+Bool)
+%	    Enable locking (=DB_INIT_LOCK=).  Implied if transactions
+%	    are used.
+%	  - logging(+Bool)
+%	    Enable logging the DB modifications (=DB_INIT_LOG=). Logging
+%	    enables recovery of databases in case of system failure.
+%	    Normally it is used in combination with transactions.
+%	  - server(+Host, [+ServerOptions])
+%	    Initialise the DB package for accessing a remote
+%	    database. Host specifies the name of the machine running
+%	    `berkeley_db_svc`. Optionally additional options may be
+%	    specified:
+%	    - server_timeout(+Seconds)
+%	      Specify the timeout time the server uses to determine
+%	      that the client has gone. This implies the server will
+%	      terminate the connection to this client if this client
+%	      does not issue any requests for the indicated time.
+%	    - client_timeout(+Seconds)
+%	      Specify the time the client waits for the server to
+%	      handle a request.
+%	  - transactions(+Bool)
+%	    Enable transactions, providing atomicy of changes and
+%	    security. Implies logging and locking. See
+%	    db_transaction/1.
 %	  - config(+ListOfConfig)
 %	    Specify a list of configuration options, each option is of
-%	    the form Name(Value).  Supported config options are:
-%	    - create(+Bool)
-%	      If `true`, create any underlying file as required. By
-%	      default, no new files are created. This option should be
-%	      set for prograns that create new databases.
-%	    - logging(+Bool)
-%	      Enable logging the DB modifications. Logging enables
-%	      recovery of databases in case of system failure. Normally
-%	      it is used in combination with transactions.
-%	    - transactions(+Bool)
-%	      Enable transactions, providing atomicy of changes and
-%	      security. Implies logging and locking. See
-%	      db_transaction/1.
-%	    - server(+Host, [+ServerOptions])
-%	      Initialise the DB package for accessing a remote
-%	      database. Host specifies the name of the machine running
-%	      `berkeley_db_svc`. Optionally additional options may be
-%	      specified:
-%	      - server_timeout(+Seconds)
-%		Specify the timeout time the server uses to determine
-%		that the client has gone. This implies the server will
-%		terminate the connection to this client if this client
-%		does not issue any requests for the indicated time.
-%	      - client_timeout(+Seconds)
-%		Specify the time the client waits for the server to
-%		handle a request.
-%	  - mp_size(+Integer)
-%	    Size of the memory-pool used for caching.
-%	  - mp_mmapsize(+Integer)
-%	    Maximum size of a DB file mapped entirely into memory.
+%	    the form Name(Value).  Currently unused.
 
 %%	db_open(+File, +Mode, -DB, +Options) is det.
 %
