@@ -683,23 +683,18 @@ pl_db_transaction(term_t goal)
   if ( !rval )
     return FALSE;
 
-  qid = PL_open_query(NULL, PL_Q_CATCH_EXCEPTION, call1, goal);
+  qid = PL_open_query(NULL, PL_Q_PASS_EXCEPTION, call1, goal);
   rval = PL_next_solution(qid);
   if ( rval )
   { PL_cut_query(qid);
     NOSIG(rval=commit_transaction(&tr));
     return rval;
   } else
-  { term_t ex = PL_exception(qid);
-
-    PL_cut_query(qid);
+  { PL_cut_query(qid);
 
     NOSIG(rval=abort_transaction(&tr));
     if ( !rval )
       return FALSE;
-
-    if ( ex )
-      return PL_raise_exception(ex);
 
     return FALSE;
   }
