@@ -76,21 +76,6 @@ corresponding DB API calls, which should be consulted for details.
 
 \input{db.tex}
 
-\subsection{Notes on signals and other interrupts}
-\label{sec:db-signals}
-
-The Berkeley DB routines are not signal-safe. Without precaution, this
-implies it is not possible to interrupt Prolog programs using the DB
-routines in a safe manner. To improve convinience, interrupt signals are
-blocked during the execution of the DB calls. As db_transaction/1
-handles aborts gracefully, PrologDB applications can be interrupted and
-aborted safely.
-
-Signals other than \const{SIGINT} caught during the execution of one of
-the DB interaction predicates may leave the DB in an inconsistent state.
-Fatal signals thrown by other Prolog or foreign language facilities are
-handled gracefully.
-
 \section{Copyright and license}
 \label{sec:db-copyright}
 
