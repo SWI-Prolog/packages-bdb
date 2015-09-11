@@ -1073,6 +1073,7 @@ cleanup(void)
       Sdprintf("DB: ENV close failed: %s\n", db_strerror(rval));
 
     db_env = NULL;
+    opt_transactions = FALSE;
   }
 }
 
@@ -1165,6 +1166,55 @@ get_server(term_t options, server_info *info)
 
 
 #define MAXCONFIG 20
+typedef struct db_flag
+{ char	   *name;
+  u_int32_t flags;
+  atom_t    aname;
+} db_flag;
+
+static db_flag db_dlags[] =
+{ { "init_lock",	DB_INIT_LOCK },
+  { "init_log",		DB_INIT_LOG  },
+  { "init_mpool",	DB_INIT_MPOOL },
+  { "init_rep",		DB_INIT_REP|DB_INIT_TXN|DB_INIT_LOCK },
+  { "init_txn",		DB_INIT_TXN|DB_INIT_LOG },
+  { "recover",		DB_RECOVER|DB_CREATE|DB_INIT_TXN },
+  { "recover_fatal",	DB_RECOVER_FATAL|DB_CREATE|DB_INIT_TXN },
+  { "use_environ",	DB_USE_ENVIRON },
+  { "use_environ_root",	DB_USE_ENVIRON_ROOT },
+  { "create",		DB_CREATE },
+  { "lockdown",		DB_LOCKDOWN },
+  { "failchk",		DB_FAILCHK },
+  { "private",		DB_PRIVATE },
+  { "register",		DB_REGISTER },
+  { "system_mem",	DB_SYSTEM_MEM },
+  { "thread",		DB_THREAD },
+  { (char*)NULL,	0 }
+};
+
+#define F_ERROR       ((u_int32_t)-1)
+#define F_UNPROCESSED ((u_int32_t)-2)
+
+static u_int32_t
+lookup_flag(atom_t name, term_t arg)
+{ db_flag *fp;
+
+  for(fp=db_dlags; fp->name; fp++)
+  { if ( !fp->aname )
+      fp->aname = PL_new_atom(fp->name);
+
+    if ( fp->aname == name )
+    { int v;
+
+      if ( !PL_get_bool_ex(arg, &v) )
+	return F_ERROR;
+      return v ? fp->flags : 0;
+    }
+  }
+
+  return F_UNPROCESSED;
+}
+
 
 static foreign_t
 pl_db_init(term_t option_list)
@@ -1240,36 +1290,6 @@ pl_db_init(term_t option_list)
       } else if ( name == ATOM_home )	/* db_home */
       {	if ( !PL_get_chars(a, &home, CVT_ATOM|CVT_STRING|CVT_EXCEPTION|REP_MB) )
 	  goto pl_error;
-      } else if ( name == ATOM_locking ) /* locking */
-      {	int v;
-
-	if ( !PL_get_bool_ex(a, &v) )
-	  return FALSE;
-	if ( v )
-	  flags |= DB_INIT_LOCK;
-      } else if ( name == ATOM_logging ) /* logging */
-      {	int v;
-
-	if ( !PL_get_bool_ex(a, &v) )
-	  return FALSE;
-	if ( v )
-	  flags |= DB_INIT_LOG;
-      } else if ( name == ATOM_transactions )	/* transactions */
-      {	int v;
-
-	if ( !PL_get_bool_ex(a, &v) )
-	  return FALSE;
-	if ( v )
-	{ flags |= (DB_INIT_TXN|DB_INIT_MPOOL|DB_INIT_LOCK|DB_INIT_LOG);
-	  opt_transactions = TRUE;
-	}
-      } else if ( name == ATOM_create )	/* Create files */
-      {	int v;
-
-	if ( !PL_get_bool_ex(a, &v) )
-	  goto pl_error;
-	if ( v )
-	  flags |= DB_CREATE;
       } else if ( name == ATOM_config )	/* db_config */
       { term_t h = PL_new_term_ref();
 	term_t a2 = PL_new_term_ref();
@@ -1300,11 +1320,20 @@ pl_db_init(term_t option_list)
 	if ( !PL_get_nil_ex(a) )
 	  goto pl_error;
       } else
-      { PL_domain_error("db_config", head);
-	goto pl_error;
+      { u_int32_t fv = lookup_flag(name, a);
+
+	switch(fv)
+	{ case F_ERROR:
+	    goto pl_error;
+	  case F_UNPROCESSED:
+	    PL_domain_error("db_option", head);
+	    goto pl_error;
+	  default:
+	    flags |= fv;
+	}
       }
     } else
-    { PL_domain_error("db_option", head);
+    { PL_type_error("db_option", head);
       goto pl_error;
     }
   }
@@ -1314,6 +1343,8 @@ pl_db_init(term_t option_list)
 
   if ( (rval=db_env->open(db_env, home, flags, 0666)) != 0 )
     goto db_error;
+  if ( flags & DB_INIT_TXN )
+    opt_transactions = TRUE;
 
   if ( !rval )
     return TRUE;
