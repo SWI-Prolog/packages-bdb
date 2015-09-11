@@ -87,7 +87,7 @@ TBD: Thread-safe version
 	- Deal with transactions and threads
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
-#ifdef WIN32
+#if 1
 #define NOSIG(code) { code; }
 #else
 #define NOSIG(code) \
