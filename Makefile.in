@@ -8,6 +8,7 @@ PACKAGE=db
 DOC=db4pl
 include ../Makefile.defs
 CFLAGS+= -I.
+# COFLAGS=-gdwarf-2 -g3
 
 LIBPL=		db.pl
 TARGETS=	db4pl.$(SO)
