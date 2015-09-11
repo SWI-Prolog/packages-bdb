@@ -76,12 +76,13 @@ test(loop, PairsOut =@= PairsIn) :-
 	setof(Type-Data, db_enum(DB, Type, Data), PairsOut),
 	db_close(DB),
 	delete_existing_file(DBFile).
-test(no_duplicates, true) :-
+test(no_duplicates, Mies == mies) :-
 	DBFile = 'test.db',
 	delete_existing_file(DBFile),
 	db_open(DBFile, update, DB, [duplicates(false)]),
 	db_put(DB, aap, noot),
-	assertion(\+ db_put(DB, aap, mies)),
+	db_put(DB, aap, mies),
+	db_get(DB, aap, Mies),
 	db_close(DB),
 	delete_existing_file(DBFile).
 test(duplicates, Out == [1,2,3,4,5,6,7,8,9,10]) :-
