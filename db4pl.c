@@ -325,6 +325,13 @@ free_dbt(DBT *dbt, dtype type)
 }
 
 
+static void
+free_result_dbt(DBT *dbt)
+{ if ( dbt->flags & DB_DBT_MALLOC )
+    free(dbt->data);
+}
+
+
 int
 db_status(int rval)
 { switch( rval )
@@ -981,22 +988,29 @@ pl_db_getdel(term_t handle, term_t key, term_t value, control_t ctx, int del)
 	goto out;
       } else				/* Unique DB */
       { DBT k, v;
+	int rc;
 
 	if ( !get_dbt(key, db->key_type, &k) )
 	  return FALSE;
 	memset(&v, 0, sizeof(v));
+	if ( (db_flags&DB_THREAD) )
+	  v.flags = DB_DBT_MALLOC;
 
 	if ( (rval=db->db->get(db->db, TheTXN, &k, &v, 0)) == 0 )
-	{ int rc = unify_dbt(value, db->value_type, &v);
+	{ rc = unify_dbt(value, db->value_type, &v);
 
+	  free_result_dbt(&v);
 	  if ( rc && del )
 	  { int flags = 0;
 
-	    return db_status(db->db->del(db->db, TheTXN, &k, flags));
-	  } else
-	    return rc;
+	    rc = db_status(db->db->del(db->db, TheTXN, &k, flags));
+	  }
 	} else
-	  return db_status(rval);
+	  rc = db_status(rval);
+
+	free_dbt(&k, db->key_type);
+
+	return rc;
       }
     case PL_REDO:
       c = PL_foreign_context_address(ctx);
