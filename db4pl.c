@@ -1187,7 +1187,7 @@ pl_db_init(term_t option_list)
     server_info si;
     if ( get_server(option_list, &si) )
     { if ( (rval=db_env_create(&db_env, DB_RPCCLIENT)) )
-        return db_status(rval);
+	goto db_error;
 #ifdef HAVE_SET_RPC_SERVER		/* >= 4.0; <= 5.0 */
       rval = db_env->set_rpc_server(db_env, 0, si.host,
 				    si.cl_timeout, si.sv_timeout, si.flags);
@@ -1198,11 +1198,11 @@ pl_db_init(term_t option_list)
 #endif
 #endif
       if ( rval )
-        return db_status(rval);
+	goto db_error;
     } else
 #endif
     { if ( (rval=db_env_create(&db_env, 0)) )
-        return db_status(rval);
+	goto db_error;
     }
   }
 
@@ -1216,7 +1216,10 @@ pl_db_init(term_t option_list)
     int arity;
 
     if ( !PL_get_name_arity(head, &name, &arity) )
-      return PL_type_error("option", head);
+    { PL_type_error("option", head);
+      goto pl_error;
+    }
+
     if ( arity == 1 )
     { _PL_get_arg(1, head, a);
 
@@ -1236,7 +1239,7 @@ pl_db_init(term_t option_list)
 	flags |= DB_INIT_MPOOL;
       } else if ( name == ATOM_home )	/* db_home */
       {	if ( !PL_get_chars(a, &home, CVT_ATOM|CVT_STRING|CVT_EXCEPTION|REP_MB) )
-	  return FALSE;
+	  goto pl_error;
       } else if ( name == ATOM_locking ) /* locking */
       {	int v;
 
@@ -1264,7 +1267,7 @@ pl_db_init(term_t option_list)
       {	int v;
 
 	if ( !PL_get_bool_ex(a, &v) )
-	  return FALSE;
+	  goto pl_error;
 	if ( v )
 	  flags |= DB_CREATE;
       } else if ( name == ATOM_config )	/* db_config */
@@ -1278,32 +1281,50 @@ pl_db_init(term_t option_list)
 	  char *v;
 
 	  if ( !PL_get_name_arity(h, &nm, &ar) || ar !=	1 )
-	    return PL_domain_error("db_config", h);
+	  { PL_domain_error("db_config", h);
+	    goto pl_error;
+	  }
 	  _PL_get_arg(1, h, a2);
 	  if ( !PL_get_chars(a2, &v, CVT_ATOM|CVT_STRING|CVT_EXCEPTION) )
-	    return FALSE;
+	    goto pl_error;
 	  n = PL_atom_chars(nm);
-	  config[nconf] = malloc(strlen(n)+strlen(v)+2);
+	  if ( !(config[nconf] = malloc(strlen(n)+strlen(v)+2)) )
+	  { PL_resource_error("memory");
+	    goto pl_error;
+	  }
 	  strcpy(config[nconf], n);
 	  strcat(config[nconf], " ");
 	  strcat(config[nconf], v);
 	  config[++nconf] = NULL;
 	}
 	if ( !PL_get_nil_ex(a) )
-	  return FALSE;
+	  goto pl_error;
       } else
-	return PL_domain_error("db_option", head);
+      { PL_domain_error("db_config", head);
+	goto pl_error;
+      }
     } else
-      return PL_domain_error("option", head);
+    { PL_domain_error("db_option", head);
+      goto pl_error;
+    }
   }
 
   if ( !PL_get_nil_ex(options) )
-    return FALSE;
+    goto pl_error;
 
   if ( (rval=db_env->open(db_env, home, flags, 0666)) != 0 )
-    return db_status(rval);
+    goto db_error;
 
-  return TRUE;
+  if ( !rval )
+    return TRUE;
+
+pl_error:
+  cleanup();
+  return FALSE;
+
+db_error:
+  cleanup();
+  return db_status(rval);
 }
 
 static foreign_t
