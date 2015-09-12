@@ -75,34 +75,53 @@ Accessing a database consists of four steps:
 
 %%	db_init(+Options) is det.
 %
-%	Initialise the DB package. This must   be  done before the first
-%	call to db_open/4 and at maximum   once.  If db_open/4 is called
-%	without calling db_init/1, default initialisation is used, which
-%	is generally suitable  for  handling   small  databases  without
-%	support for advanced features. Options is a list of options. The
-%	currently supported are listed below.  For details, please refer
-%	to the DB manual.
+%	Initialise the default  DB  _environment_.   This  must  be done
+%	before the first call  to  db_open/4   and  at  maximum once. If
+%	db_open/4  is  called   without    calling   db_init/1,  default
+%	initialisation is used, which is suitable for using a plain file
+%	as a database that is  accessed   from  a  single Prolog thread.
+%	Options is a list of options.   The  currently supported options
+%	are listed below. The name of   the  boolean options are derived
+%	from the DB  flags  by  dropping   the  =DB_=  prefix  and using
+%	lowercase, e.g. =DB_INIT_LOCK= becomes `init_lock`. For details,
+%	please refer to the DB manual.
 %
 %	  - create(+Bool)
 %	    If `true`, create any underlying file as required. By
 %	    default, no new files are created. This option should be
 %	    set for prograns that create new databases.
+%	  - failchk(+Bool)
 %	  - home(+Home)
 %	    Specify the DB home directory, the directory holding the
 %	    database files.
+%	  - init_lock(+Bool)
+%	    Enable locking (=DB_INIT_LOCK=).  Implied if transactions
+%	    are used.
+%	  - init_log(+Bool)
+%	    Enable logging the DB modifications (=DB_INIT_LOG=). Logging
+%	    enables recovery of databases in case of system failure.
+%	    Normally it is used in combination with transactions.
+%	  - init_mpool(+Bool)
+%	    Initialize memory pool.  Impicit if mp_size(+Size) or
+%	    mp_mmapsize(+Size) is specified.
+%	  - init_rep(+Bool)
+%	    Init database replication.	The rest of the replication
+%	    logic is not yet supported.
+%	  - init_txn(+Bool)
+%	    Init transactions.  Implies init_log(true).
+%	  - lockdown(+Bool)
 %	  - mp_size(+Integer)
 %	  - mp_mmapsize(+Integer)
 %	    Control memory pool handling (=DB_INIT_MPOOL=). The
 %	    `mp_size` option sets the memory-pool used for
 %	    caching, while the `mp_mmapsize` controls the maximum size
 %	    of a DB file mapped entirely into memory.
-%	  - locking(+Bool)
-%	    Enable locking (=DB_INIT_LOCK=).  Implied if transactions
-%	    are used.
-%	  - logging(+Bool)
-%	    Enable logging the DB modifications (=DB_INIT_LOG=). Logging
-%	    enables recovery of databases in case of system failure.
-%	    Normally it is used in combination with transactions.
+%	  - private(+Bool)
+%	  - recover(+Bool)
+%	    Perform recovery before opening the database.
+%	  - recover_fatal(+Bool)
+%	    Perform fatal recovery before opening the database.
+%	  - register(+Bool)
 %	  - server(+Host, [+ServerOptions])
 %	    Initialise the DB package for accessing a remote
 %	    database. Host specifies the name of the machine running
@@ -116,10 +135,15 @@ Accessing a database consists of four steps:
 %	    - client_timeout(+Seconds)
 %	      Specify the time the client waits for the server to
 %	      handle a request.
+%	  - system_mem(+Bool)
 %	  - transactions(+Bool)
 %	    Enable transactions, providing atomicy of changes and
 %	    security. Implies logging and locking. See
 %	    db_transaction/1.
+%	  - thread(+Bool)
+%	    Make the environment accessible from multiple threads.
+%	  - use_environ(+Bool)
+%	  - use_environ_root(+Bool)
 %	  - config(+ListOfConfig)
 %	    Specify a list of configuration options, each option is of
 %	    the form Name(Value).  Currently unused.
