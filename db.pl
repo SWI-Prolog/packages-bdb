@@ -44,6 +44,8 @@
 	    db_atom/3			% +DB, ?Atom, ?Id
 	  ]).
 :- use_foreign_library(foreign(db4pl)).
+:- meta_predicate
+	db_transaction(0).
 
 /** <module> Berkeley DB interface
 
