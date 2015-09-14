@@ -64,6 +64,7 @@ static atom_t ATOM_key;
 static atom_t ATOM_value;
 static atom_t ATOM_term;
 static atom_t ATOM_atom;
+static atom_t ATOM_c_blob;
 static atom_t ATOM_c_string;
 static atom_t ATOM_c_long;
 static atom_t ATOM_server;
@@ -119,6 +120,7 @@ initConstants(void)
   ATOM_value	      =	PL_new_atom("value");
   ATOM_term	      =	PL_new_atom("term");
   ATOM_atom	      =	PL_new_atom("atom");
+  ATOM_c_blob	      =	PL_new_atom("c_blob");
   ATOM_c_string	      =	PL_new_atom("c_string");
   ATOM_c_long	      =	PL_new_atom("c_long");
   ATOM_server	      =	PL_new_atom("server");
@@ -231,6 +233,8 @@ unify_dbt(term_t t, dtype type, DBT *dbt)
     }
     case D_ATOM:
       return PL_unify_chars(t, PL_ATOM|REP_UTF8, dbt->size, dbt->data);
+    case D_CBLOB:
+      return PL_unify_chars(t, PL_STRING|REP_ISO_LATIN_1, dbt->size, dbt->data);
     case D_CSTRING:
       return PL_unify_chars(t, PL_ATOM|REP_UTF8, (size_t)-1, dbt->data);
     case D_CLONG:
@@ -261,6 +265,20 @@ get_dbt(term_t t, dtype type, DBT *dbt)
 
       if ( PL_get_nchars(t, &len, &s,
 			 CVT_ATOM|CVT_EXCEPTION|REP_UTF8|BUF_MALLOC) )
+      { dbt->data = s;
+	dbt->size = len;
+
+	return TRUE;
+      } else
+	return FALSE;
+    }
+    case D_CBLOB:
+    { size_t len;
+      char *s;
+
+      if ( PL_get_nchars(t, &len, &s,
+			 CVT_ATOM|CVT_STRING|CVT_EXCEPTION|
+			 REP_ISO_LATIN_1|BUF_MALLOC) )
       { dbt->data = s;
 	dbt->size = len;
 
@@ -308,6 +326,7 @@ free_dbt(DBT *dbt, dtype type)
       PL_erase_external(dbt->data);
       break;
     case D_ATOM:
+    case D_CBLOB:
     case D_CSTRING:
       PL_free(dbt->data);
       break;
@@ -390,6 +409,8 @@ get_dtype(term_t t, dtype *type)
     *type = D_TERM;
   else if ( a == ATOM_atom )
     *type = D_ATOM;
+  else if ( a == ATOM_c_blob )
+    *type = D_CBLOB;
   else if ( a == ATOM_c_string )
     *type = D_CSTRING;
   else if ( a == ATOM_c_long )

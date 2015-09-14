@@ -178,6 +178,11 @@ Accessing a database consists of four steps:
 %	    - atom
 %	      Key/Value is an atom. The text is represented as a
 %	      UTF-8 string and its length.
+%	    - c_blob
+%	      Key/Value is a blob (sequence of bytes).  On output,
+%	      a Prolog string is used.  The input is either a Prolog
+%	      string or an atom holding only characters in the range
+%	      [0..255].
 %	    - c_string
 %	      Key/Value is an atom. The text is represented as a C
 %	      0-terminated UTF-8 string.

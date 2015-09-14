@@ -47,6 +47,7 @@
 typedef enum
 { D_TERM,				/* a Prolog term */
   D_ATOM,				/* an atom (length+cahsr) */
+  D_CBLOB,				/* a C-blob (bytes) */
   D_CSTRING,				/* a C-string (0-terminated) */
   D_CLONG				/* a C-long */
 } dtype;
