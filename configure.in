@@ -93,7 +93,7 @@ if test "$nodb" = yes; then
 ##################################################################
 EOF
 else
-  BDB_TARGETS="bdblib4pl.$SO"
+  BDB_TARGETS="bdb4pl.$SO"
   BDB_PLTARGETS=bdb.pl
 fi
 
