@@ -1426,6 +1426,7 @@ pl_bdb_atom(term_t handle, term_t atom, term_t id)
 install_t
 install(void)
 { initConstants();
+  PL_license("agpl", "BerkeleyDB (libdb, used by library(bdb))");
 
   PL_register_foreign("bdb_open",   4, pl_bdb_open,   0);
   PL_register_foreign("bdb_close",  1, pl_bdb_close,  0);
