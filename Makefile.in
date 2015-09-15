@@ -1,6 +1,6 @@
 ################################################################
-# SWI-Prolog `DB' package
-# Author:    Jan Wielemaker. jan@swi.psy.uva.nl
+# SWI-Prolog `BDB' package
+# Author:    Jan Wielemaker. J.Wielemaker@vu.nl
 # Copyright: LGPL (see COPYING or www.gnu.org
 ################################################################
 
@@ -10,12 +10,15 @@ include ../Makefile.defs
 CFLAGS+= -I.
 # COFLAGS=-gdwarf-2 -g3
 
-LIBPL=		bdb.pl
-TARGETS=	bdb4pl.$(SO)
+LIBPL=		@BDB_PLTARGETS@
+TARGETS=	@BDB_TARGETS@
 
 DBOBJ=		bdb4pl.o atom.o error.o
 
 all:		$(TARGETS)
+
+nolib::
+		@echo "WARNING: Could not find db library; skipped"
 
 bdb4pl.$(SO):	$(DBOBJ)
 		$(LD) $(LDSOFLAGS) -o $@ $(DBOBJ) @LIBS@
