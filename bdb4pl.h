@@ -43,6 +43,7 @@
 #endif
 
 #define DBH_MAGIC 277484232		/* magic for validation */
+#define DBH_ENVMAGIC 6560701		/* magic for validation */
 
 typedef enum
 { D_TERM,				/* a Prolog term */
@@ -53,13 +54,22 @@ typedef enum
 } dtype;
 
 typedef struct
-{ DB *db;				/* the database */
+{ DB_ENV       *env;			/* the database environment */
 
-  atom_t symbol;			/* <db>(...)  */
-  int	magic;				/* DBH_MAGIC */
-  int	duplicates;			/* Duplicates allowed? */
-  dtype	key_type;			/* type of the key */
-  dtype value_type;			/* type of the data */
+  atom_t	symbol;			/* <bdb_env>(...)  */
+  int		magic;			/* DBH_MAGIC */
+  u_int32_t	flags;			/* flags used to create the env */
+} dbenvh;
+
+typedef struct
+{ DB	       *db;			/* the database */
+
+  atom_t	symbol;			/* <bdb>(...)  */
+  int		magic;			/* DBH_MAGIC */
+  int		duplicates;		/* Duplicates allowed? */
+  dtype		key_type;		/* type of the key */
+  dtype		value_type;		/* type of the data */
+  dbenvh       *env;			/* associated environment */
 } dbh;
 
 typedef unsigned long	atomid_t;	/* internal atom identifier */
@@ -71,6 +81,6 @@ int	db_status(int rval);
 int	db_atom_id(dbh *db, atom_t a, atomid_t *id, int flags);
 int	pl_atom_from_db(dbh *db, atomid_t id, atom_t *a);
 
-#define db_env db4pl_env
+//#define db_env db4pl_env
 
 #endif /*DB4PL_H_INCLUDED*/

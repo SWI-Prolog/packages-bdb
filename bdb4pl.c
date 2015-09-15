@@ -73,15 +73,14 @@ static atom_t ATOM_client_timeout;
 
 static functor_t FUNCTOR_type1;
 
-static DB_ENV   *db_env;		/* default environment */
-static u_int32_t db_flags;		/* Create flag for db_env */
+static dbenvh   default_env;		/* default environment */
 
 #define mkfunctor(n, a) PL_new_functor(PL_new_atom(n), a)
 
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-TBD: Thread-safe version
-
-	- Deal with transactions and threads
+Old versions blocked signals during the  DB primitives. Current versions
+of SWI-Prolog only use synchronous signals, so this is no longer needed.
+I leave it here for future reference.
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
 #if 1
@@ -130,11 +129,98 @@ initConstants(void)
   FUNCTOR_type1	      =	mkfunctor("type", 1);
 }
 
-static void cleanup(void);
+static void cleanup(dbenvh *env);
 
 
 		 /*******************************
-		 *	  SYMBOL WRAPPER	*
+		 *     DB_ENV SYMBOL WRAPPER	*
+		 *******************************/
+
+static void
+acquire_dbenv(atom_t symbol)
+{ dbenvh *db_env = PL_blob_data(symbol, NULL, NULL);
+  db_env->symbol = symbol;
+}
+
+
+static int
+release_dbenv(atom_t symbol)
+{ dbenvh *db_env = PL_blob_data(symbol, NULL, NULL);
+  DB_ENV *env;
+
+  if ( (env=db_env->env) )
+  { int rc;
+
+    db_env->env = NULL;
+    if ( (rc=env->close(env, 0)) )
+      Sdprintf("Warning: BDB: DB_ENV close failed: %s\n", db_strerror(rc));
+  }
+
+  PL_free(db_env);
+
+  return TRUE;
+}
+
+static int
+compare_dbenvs(atom_t a, atom_t b)
+{ dbenvh *ara = PL_blob_data(a, NULL, NULL);
+  dbenvh *arb = PL_blob_data(b, NULL, NULL);
+
+  return ( ara > arb ?  1 :
+	   ara < arb ? -1 : 0
+	 );
+}
+
+static int
+write_dbenv(IOSTREAM *s, atom_t symbol, int flags)
+{ dbenvh *db_env = PL_blob_data(symbol, NULL, NULL);
+
+  Sfprintf(s, "<bdb_env>(%p)", db_env);
+
+  return TRUE;
+}
+
+static PL_blob_t dbenv_blob =
+{ PL_BLOB_MAGIC,
+  PL_BLOB_NOCOPY,
+  "bdb_env",
+  release_dbenv,
+  compare_dbenvs,
+  write_dbenv,
+  acquire_dbenv
+};
+
+
+static int
+get_dbenv(term_t t, dbenvh **db_env)
+{ PL_blob_t *type;
+  void *data;
+
+  if ( PL_get_blob(t, &data, NULL, &type) && type == &dbenv_blob)
+  { dbenvh *p = data;
+
+    if ( p->symbol )
+    { *db_env = p;
+
+      return TRUE;
+    }
+
+    PL_permission_error("access", "closed_bdb_env", t);
+    return FALSE;
+  }
+
+  return PL_type_error("bdb_env", t);
+}
+
+
+static int
+unify_dbenv(term_t t, dbh *db)
+{ return PL_unify_blob(t, db, sizeof(*db), &dbenv_blob);
+}
+
+
+		 /*******************************
+		 *	 DB SYMBOL WRAPPER	*
 		 *******************************/
 
 static void
@@ -173,7 +259,7 @@ static int
 write_db(IOSTREAM *s, atom_t symbol, int flags)
 { dbh *db = PL_blob_data(symbol, NULL, NULL);
 
-  Sfprintf(s, "<db>(%p)", db);
+  Sfprintf(s, "<bdb>(%p)", db);
 
   return TRUE;
 }
@@ -203,14 +289,12 @@ get_db(term_t t, dbh **db)
       return TRUE;
     }
 
-    PL_permission_error("access", "closed_db", t);
+    PL_permission_error("access", "closed_bdb", t);
     return FALSE;
   }
 
   return PL_type_error("db", t);
 }
-
-
 
 
 static int
@@ -494,6 +578,7 @@ pl_bdb_open(term_t file, term_t mode, term_t handle, term_t options)
   atom_t a;
   int rval;
   char *subdb = NULL;
+  dbenvh *env = &default_env;
 
   if ( !PL_get_file_name(file, &fname, PL_FILE_OSPATH) )
     return FALSE;
@@ -509,7 +594,7 @@ pl_bdb_open(term_t file, term_t mode, term_t handle, term_t options)
 
   dbh = calloc(1, sizeof(*dbh));
   dbh->magic = DBH_MAGIC;
-  NOSIG(rval=db_create(&dbh->db, db_env, 0));
+  NOSIG(rval=db_create(&dbh->db, env->env, 0));
   if ( rval )
     return db_status(rval);
 
@@ -522,7 +607,7 @@ pl_bdb_open(term_t file, term_t mode, term_t handle, term_t options)
   }
 
 #ifdef DB41
-  if ( (db_flags&DB_INIT_TXN) )
+  if ( (env->flags&DB_INIT_TXN) )
     flags |= DB_AUTO_COMMIT;
   NOSIG(rval=dbh->db->open(dbh->db, NULL, fname, subdb, type, flags, m));
 #else
@@ -615,7 +700,9 @@ free_transaction_stack(void *ptr)
 
 static int
 begin_transaction(transaction *t)
-{ if ( db_env && (db_flags&DB_INIT_TXN) )
+{ dbenvh *env = &default_env;
+
+  if ( env->env && (env->flags&DB_INIT_TXN) )
   { int rval;
     DB_TXN *pid, *tid;
     transaction_stack *stack;
@@ -628,7 +715,7 @@ begin_transaction(transaction *t)
     else
       pid = NULL;
 
-    if ( (rval=db_env->txn_begin(db_env, pid, &tid, 0)) )
+    if ( (rval=env->env->txn_begin(env->env, pid, &tid, 0)) )
       return db_status(rval);
 
     t->parent = stack->top;
@@ -966,6 +1053,7 @@ pl_bdb_getdel(term_t handle, term_t key, term_t value, control_t ctx, int del)
   int rval = 0;
   dbget_ctx *c = NULL;
   fid_t fid = 0;
+  dbenvh *env = &default_env;
 
   switch( PL_foreign_control(ctx) )
   { case PL_FIRST_CALL:
@@ -1006,7 +1094,7 @@ pl_bdb_getdel(term_t handle, term_t key, term_t value, control_t ctx, int del)
 	if ( !get_dbt(key, db->key_type, &k) )
 	  return FALSE;
 	memset(&v, 0, sizeof(v));
-	if ( (db_flags&DB_THREAD) )
+	if ( (env->flags&DB_THREAD) )
 	  v.flags = DB_DBT_MALLOC;
 
 	if ( (rval=db->db->get(db->db, TheTXN, &k, &v, 0)) == 0 )
@@ -1092,15 +1180,15 @@ pl_bdb_del3(term_t handle, term_t key, term_t value, control_t ctx)
 
 
 static void
-cleanup(void)
-{ if ( db_env )
+cleanup(dbenvh *env)
+{ if ( env->env )
   { int rval;
 
-    if ( (rval=db_env->close(db_env, 0)) )
+    if ( (rval=env->env->close(env->env, 0)) )
       Sdprintf("DB: ENV close failed: %s\n", db_strerror(rval));
 
-    db_env   = NULL;
-    db_flags = 0;
+    env->env   = NULL;
+    env->flags = 0;
   }
 }
 
@@ -1253,8 +1341,9 @@ pl_bdb_init(term_t option_list)
   char *home = NULL;
   char *config[MAXCONFIG];
   int nconf = 0;
+  dbenvh *env = &default_env;
 
-  if ( db_env )
+  if ( env->env )
     return pl_error(ERR_PACKAGE_INT, "db", 0, "Already initialized");
 
   config[0] = NULL;
@@ -1263,14 +1352,14 @@ pl_bdb_init(term_t option_list)
 #if defined(HAVE_SET_RPC_SERVER) || defined(HAVE_SET_SERVER)
     server_info si;
     if ( get_server(option_list, &si) )
-    { if ( (rval=db_env_create(&db_env, DB_RPCCLIENT)) )
+    { if ( (rval=db_env_create(&env->env, DB_RPCCLIENT)) )
 	goto db_error;
 #ifdef HAVE_SET_RPC_SERVER		/* >= 4.0; <= 5.0 */
-      rval = db_env->set_rpc_server(db_env, 0, si.host,
+      rval = db_env->set_rpc_server(env->env, 0, si.host,
 				    si.cl_timeout, si.sv_timeout, si.flags);
 #else
 #ifdef HAVE_SET_SERVER
-      rval = db_env->set_server(db_env, si.host,
+      rval = db_env->set_server(env->env, si.host,
 			        si.cl_timeout, si.sv_timeout, si.flags);
 #endif
 #endif
@@ -1278,13 +1367,13 @@ pl_bdb_init(term_t option_list)
 	goto db_error;
     } else
 #endif
-    { if ( (rval=db_env_create(&db_env, 0)) )
+    { if ( (rval=db_env_create(&env->env, 0)) )
 	goto db_error;
     }
   }
 
-  db_env->set_errpfx(db_env, "db4pl: ");
-  db_env->set_errcall(db_env, pl_bdb_error);
+  env->env->set_errpfx(env->env, "bdb4pl: ");
+  env->env->set_errcall(env->env, pl_bdb_error);
 
   flags |= DB_INIT_MPOOL;		/* always needed? */
 
@@ -1305,14 +1394,14 @@ pl_bdb_init(term_t option_list)
 
 	if ( !PL_get_size_ex(a, &v) )
 	  return FALSE;
-	db_env->set_mp_mmapsize(db_env, v);
+	env->env->set_mp_mmapsize(env->env, v);
 	flags |= DB_INIT_MPOOL;
       } else if ( name == ATOM_mp_size ) /* mp_size */
       { size_t v;
 
 	if ( !PL_get_size_ex(a, &v) )
 	  return FALSE;
-	db_env->set_cachesize(db_env, 0, v, 0);
+	env->env->set_cachesize(env->env, 0, v, 0);
 	flags |= DB_INIT_MPOOL;
       } else if ( name == ATOM_home )	/* db_home */
       {	if ( !PL_get_chars(a, &home, CVT_ATOM|CVT_STRING|CVT_EXCEPTION|REP_MB) )
@@ -1368,25 +1457,25 @@ pl_bdb_init(term_t option_list)
   if ( !PL_get_nil_ex(options) )
     goto pl_error;
 
-  if ( (rval=db_env->open(db_env, home, flags, 0666)) != 0 )
+  if ( (rval=env->env->open(env->env, home, flags, 0666)) != 0 )
     goto db_error;
-  db_flags = flags;
+  env->flags = flags;
 
   if ( !rval )
     return TRUE;
 
 pl_error:
-  cleanup();
+  cleanup(env);
   return FALSE;
 
 db_error:
-  cleanup();
+  cleanup(env);
   return db_status(rval);
 }
 
 static foreign_t
 pl_bdb_exit(void)
-{ cleanup();
+{ cleanup(&default_env);
 
   return TRUE;
 }
@@ -1454,5 +1543,5 @@ uninstall(void)
   { pthread_key_delete(transaction_key);
     transaction_key = 0;
   }
-  cleanup();
+  cleanup(&default_env);
 }
