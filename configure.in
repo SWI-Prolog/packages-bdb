@@ -85,9 +85,6 @@ AC_TRY_COMPILE(
    AC_MSG_RESULT(no))
 
 if test "$nodb" = yes; then
-  BDB_TARGETS="bdblib4pl.$SO"
-  BDB_PLTARGETS=bdb.pl
-else
   BDB_TARGETS=nolib
   cat << EOF
 ##################################################################
@@ -95,6 +92,9 @@ else
 # Make sure you have the BerkeleyDB development library installed.
 ##################################################################
 EOF
+else
+  BDB_TARGETS="bdblib4pl.$SO"
+  BDB_PLTARGETS=bdb.pl
 fi
 
 AC_OUTPUT(Makefile)
