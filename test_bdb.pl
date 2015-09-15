@@ -27,21 +27,21 @@
     the GNU General Public License.
 */
 
-:- module(test_db,
-	  [ test_db/0
+:- module(test_bdb,
+	  [ test_bdb/0
 	  ]).
 
 :- asserta(user:file_search_path(foreign, '.')).
 :- asserta(user:file_search_path(library, '.')).
 :- asserta(user:file_search_path(library, '../plunit')).
 
-:- use_module(library(db)).
+:- use_module(library(bdb)).
 :- use_module(library(plunit)).
 :- use_module(library(debug)).
 :- use_module(library(lists)).
 
-test_db :-
-	run_tests([ db
+test_bdb :-
+	run_tests([ bdb
 		  ]).
 
 data(var,	     _).
@@ -64,36 +64,36 @@ delete_existing_file(File) :-
 	delete_file(File).
 delete_existing_file(_).
 
-:- begin_tests(db).
+:- begin_tests(bdb).
 
 test(loop, PairsOut =@= PairsIn) :-
 	DBFile = 'test.db',
 	delete_existing_file(DBFile),
 	setof(Type-Data, data(Type, Data), PairsIn),
-	db_open(DBFile, update, DB, []),
+	bdb_open(DBFile, update, DB, []),
 	forall(member(Type-Data, PairsIn),
-	       db_put(DB, Type, Data)),
-	setof(Type-Data, db_enum(DB, Type, Data), PairsOut),
-	db_close(DB),
+	       bdb_put(DB, Type, Data)),
+	setof(Type-Data, bdb_enum(DB, Type, Data), PairsOut),
+	bdb_close(DB),
 	delete_existing_file(DBFile).
 test(no_duplicates, Mies == mies) :-
 	DBFile = 'test.db',
 	delete_existing_file(DBFile),
-	db_open(DBFile, update, DB, [duplicates(false)]),
-	db_put(DB, aap, noot),
-	db_put(DB, aap, mies),
-	db_get(DB, aap, Mies),
-	db_close(DB),
+	bdb_open(DBFile, update, DB, [duplicates(false)]),
+	bdb_put(DB, aap, noot),
+	bdb_put(DB, aap, mies),
+	bdb_get(DB, aap, Mies),
+	bdb_close(DB),
 	delete_existing_file(DBFile).
 test(duplicates, Out == [1,2,3,4,5,6,7,8,9,10]) :-
 	DBFile = 'test.db',
 	delete_existing_file(DBFile),
-	db_open(DBFile, update, DB, [duplicates(true)]),
+	bdb_open(DBFile, update, DB, [duplicates(true)]),
 	forall(between(1, 10, X),
 	       forall(between(1, 10, Y),
-		      db_put(DB, X, Y))),
-	db_getall(DB, 5, Out),
-	db_close(DB),
+		      bdb_put(DB, X, Y))),
+	bdb_getall(DB, 5, Out),
+	bdb_close(DB),
 	delete_existing_file(DBFile).
 
-:- end_tests(db).
+:- end_tests(bdb).

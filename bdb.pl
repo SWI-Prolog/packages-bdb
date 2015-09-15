@@ -28,24 +28,24 @@
     the GNU General Public License.
 */
 
-:- module(db,
-	  [ db_open/4,			% +File, +Mode, -Handle, +Options
-	    db_close/1,			% +Handle
-	    db_closeall/0,		%
-	    db_current/1,		% -DB
-	    db_put/3,			% +DB, +Key, +Value
-	    db_del/3,			% +DB, +Key, ?Value
-	    db_delall/3,		% +DB, +Key, +Value
-	    db_enum/3,			% +DB, -Key, -Value
-	    db_get/3,			% +DB, +Key, -Value
-	    db_getall/3,		% +DB, +Key, -ValueList
-	    db_init/1,			% +Options
-	    db_transaction/1,		% :Goal
-	    db_atom/3			% +DB, ?Atom, ?Id
+:- module(bdb,
+	  [ bdb_open/4,			% +File, +Mode, -Handle, +Options
+	    bdb_close/1,			% +Handle
+	    bdb_closeall/0,		%
+	    bdb_current/1,		% -DB
+	    bdb_put/3,			% +DB, +Key, +Value
+	    bdb_del/3,			% +DB, +Key, ?Value
+	    bdb_delall/3,		% +DB, +Key, +Value
+	    bdb_enum/3,			% +DB, -Key, -Value
+	    bdb_get/3,			% +DB, +Key, -Value
+	    bdb_getall/3,		% +DB, +Key, -ValueList
+	    bdb_init/1,			% +Options
+	    bdb_transaction/1,		% :Goal
+	    bdb_atom/3			% +DB, ?Atom, ?Id
 	  ]).
-:- use_foreign_library(foreign(db4pl)).
+:- use_foreign_library(foreign(bdb4pl)).
 :- meta_predicate
-	db_transaction(0).
+	bdb_transaction(0).
 
 /** <module> Berkeley DB interface
 
@@ -65,21 +65,21 @@ Prolog terms including cycles and constraints in the database.
 
 Accessing a database consists of four steps:
 
-    1. Initialise the DB environment using db_init/1. This step is
+    1. Initialise the DB environment using bdb_init/1. This step is
        optional, providing simple non-transactional file access when
        omitted.
-    2. Open a database using db_open/4, returning a handle to the
+    2. Open a database using bdb_open/4, returning a handle to the
        database.
-    3. Accessing the data using db_put/3, db_get/3, etc.
-    4. Closing a database using db_close/1. When omitted, all open
+    3. Accessing the data using bdb_put/3, bdb_get/3, etc.
+    4. Closing a database using bdb_close/1. When omitted, all open
        databases are closed on program halt (see at_halt/1).
 */
 
-%%	db_init(+Options) is det.
+%%	bdb_init(+Options) is det.
 %
 %	Initialise the default  DB  _environment_.   This  must  be done
-%	before the first call  to  db_open/4   and  at  maximum once. If
-%	db_open/4  is  called   without    calling   db_init/1,  default
+%	before the first call to  bdb_open/4   and  at  maximum once. If
+%	bdb_open/4  is  called  without    calling  bdb_init/1,  default
 %	initialisation is used, which is suitable for using a plain file
 %	as a database that is  accessed   from  a  single Prolog thread.
 %	Options is a list of options.   The  currently supported options
@@ -141,7 +141,7 @@ Accessing a database consists of four steps:
 %	  - transactions(+Bool)
 %	    Enable transactions, providing atomicy of changes and
 %	    security. Implies logging and locking. See
-%	    db_transaction/1.
+%	    bdb_transaction/1.
 %	  - thread(+Bool)
 %	    Make the environment accessible from multiple threads.
 %	  - use_environ(+Bool)
@@ -150,7 +150,7 @@ Accessing a database consists of four steps:
 %	    Specify a list of configuration options, each option is of
 %	    the form Name(Value).  Currently unused.
 
-%%	db_open(+File, +Mode, -DB, +Options) is det.
+%%	bdb_open(+File, +Mode, -DB, +Options) is det.
 %
 %	Open File holding a database. Mode   is one of `read`, providing
 %	read-only  access  or  `update`,  providing  read/write  access.
@@ -162,7 +162,7 @@ Accessing a database consists of four steps:
 %	  - database(+Name)
 %	    If File contains multiple databases, address the named
 %	    database in the file. A DB file can only consist of multiple
-%	    databases if the db_open/4 call that created it specified
+%	    databases if the bdb_open/4 call that created it specified
 %	    this argument. Each database in the file has its own
 %	    characteristics.
 %	  - key(+Type)
@@ -195,103 +195,103 @@ Accessing a database consists of four steps:
 %	@arg DB is unified with a _blob_ of type `db`. Database handles
 %	are subject to atom garbage collection.
 
-%%	db_close(+DB) is det.
+%%	bdb_close(+DB) is det.
 %
 %	Close BerkeleyDB database indicated by DB. DB becomes invalid
 %	after this operation.  An attempt to access a closed database
 %	is detected reliably and results in a permission_error
 %	exception.
 
-%%	db_put(+DB, +Key, +Value) is det.
+%%	bdb_put(+DB, +Key, +Value) is det.
 %
 %	Add a new key-value pair to the   database. If the database does
 %	not allow for duplicates the   possible previous associated with
 %	Key is replaced by Value.
 
-%%	db_del(+DB, ?Key, ?Value) is nondet.
+%%	bdb_del(+DB, ?Key, ?Value) is nondet.
 %
 %	Delete the first matching key-value pair   from the database. If
 %	the  database  allows  for   duplicates,    this   predicate  is
 %	non-deterministic, otherwise it is   _semidet_.  The enumeration
-%	performed by this predicate is  the   same  as for db_get/3. See
-%	also db_delall/3.
+%	performed by this predicate is the   same  as for bdb_get/3. See
+%	also bdb_delall/3.
 
-%%	db_delall(+DB, +Key, ?Value) is det.
+%%	bdb_delall(+DB, +Key, ?Value) is det.
 %
 %	Delete all matching key-value  pairs   from  the  database. With
 %	unbound Value the key and all values are removed efficiently.
 
-db_delall(DB, Key, Value) :-
+bdb_delall(DB, Key, Value) :-
 	var(Value), !,
-	db_del(DB, Key).		% this is much faster
-db_delall(DB, Key, Value) :-
-	(   db_del(DB, Key, Value),
+	bdb_del(DB, Key).		% this is much faster
+bdb_delall(DB, Key, Value) :-
+	(   bdb_del(DB, Key, Value),
 	    fail
 	;   true
 	).
 
-%%	db_get(+DB, ?Key, -Value) is nondet.
+%%	bdb_get(+DB, ?Key, -Value) is nondet.
 %
 %	Query the database. If the database   allows for duplicates this
 %	predicate is non-deterministic, otherwise it  is _semidet_. Note
 %	that if Key is  a  term  this   matches  stored  keys  that  are
 %	_variants_ of Key, *not*  unification.   See  =@=/2. Thus, after
-%	db_put(DB, f(X), 42), we get the following query results:
+%	bdb_put(DB, f(X), 42), we get the following query results:
 %
-%	  - db_get(DB, f(Y), V) binds Value to `42`, while `Y` is left
+%	  - bdb_get(DB, f(Y), V) binds Value to `42`, while `Y` is left
 %	    unbound.
-%	  - db_get(DB, f(a), V) _fails_.
-%	  - db_enum(DB, f(a), V) succeeds, but does not perform any
+%	  - bdb_get(DB, f(a), V) _fails_.
+%	  - bdb_enum(DB, f(a), V) succeeds, but does not perform any
 %	    indexing, i.e., it enumerates all key-value pairs and
 %	    performs the unification.
 
-%%	db_enum(+DB, -Key, -Value)
+%%	bdb_enum(+DB, -Key, -Value)
 %
 %	Enumerate the whole database, unifying   the  key-value pairs to
 %	Key and Value.  Though  this  predicate   can  be  used  with an
 %	instantiated Key to enumerate only the   keys unifying with Key,
-%	no indexing is used by db_enum/3.
+%	no indexing is used by bdb_enum/3.
 
-%%	db_getall(+DB, +Key, -Values) is semidet.
+%%	bdb_getall(+DB, +Key, -Values) is semidet.
 %
 %	Get all values associated with Key. Fails   if  the key does not
 %	exist (as bagof/3).
 
-%%	db_current(?DB) is nondet.
+%%	bdb_current(?DB) is nondet.
 %
 %	True when DB is a handle to a currently open database.
 
-db_current(DB) :-
+bdb_current(DB) :-
 	current_blob(DB, db),
-	db_is_open(DB).
+	bdb_is_open(DB).
 
-%%	db_closeall is det.
+%%	bdb_closeall is det.
 %
 %	Close all currently open databases. This is called automatically
 %	after  loading  this  library  on  process  terminatation  using
 %	at_halt/1.
 
-db_closeall :-
-	forall(db_current(DB),
-	       catch(db_close(DB),
+bdb_closeall :-
+	forall(bdb_current(DB),
+	       catch(bdb_close(DB),
 		     E,
 		     print_message(warning, E))).
 
-terminate_db :-
-	(   current_predicate(db_exit/0)	% library was loaded ok
-	->  db_closeall,
-	    catch(db_exit, E, print_message(warning, E))
+terminate_bdb :-
+	(   current_predicate(bdb_exit/0)	% library was loaded ok
+	->  bdb_closeall,
+	    catch(bdb_exit, E, print_message(warning, E))
 	;   true
 	).
 
-:- at_halt(terminate_db).
+:- at_halt(terminate_bdb).
 
-%%	db_transaction(:Goal)
+%%	bdb_transaction(:Goal)
 %
 %	Start a transaction, execute Goal and terminate the transaction.
 %	Only if Goal succeeds, the  transaction   is  commited.  If Goal
 %	fails or raises an exception,  the   transaction  is aborted and
-%	db_transaction/1 either fails or  rethrows   the  exception.  Of
+%	bdb_transaction/1 either fails or  rethrows   the  exception. Of
 %	special interest is the exception
 %
 %	  ==
@@ -311,7 +311,7 @@ terminate_db :-
 %
 %	  ==
 %	  {Goal} :-
-%	      catch(db_transaction(Goal), E, true),
+%	      catch(bdb_transaction(Goal), E, true),
 %	      (   var(E)
 %	      ->  true
 %	      ;   E = error(package(db, deadlock), _)

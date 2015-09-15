@@ -27,7 +27,7 @@
 
 #include <SWI-Stream.h>
 #include <pthread.h>
-#include "db4pl.h"
+#include "bdb4pl.h"
 #include <sys/types.h>
 #include <limits.h>
 #include <sys/stat.h>
@@ -485,7 +485,7 @@ db_options(term_t t, dbh *dbh, char **subdb)
 
 
 static foreign_t
-pl_db_open(term_t file, term_t mode, term_t handle, term_t options)
+pl_bdb_open(term_t file, term_t mode, term_t handle, term_t options)
 { char *fname;
   int flags;
   int m = 0666;
@@ -539,7 +539,7 @@ pl_db_open(term_t file, term_t mode, term_t handle, term_t options)
 
 
 static foreign_t
-pl_db_close(term_t handle)
+pl_bdb_close(term_t handle)
 { dbh *db;
 
   if ( get_db(handle, &db) )
@@ -556,7 +556,7 @@ pl_db_close(term_t handle)
 }
 
 static foreign_t
-pl_db_is_open(term_t t)
+pl_bdb_is_open(term_t t)
 { PL_blob_t *type;
   void *data;
 
@@ -690,7 +690,7 @@ current_transaction(void)
 
 
 static foreign_t
-pl_db_transaction(term_t goal)
+pl_bdb_transaction(term_t goal)
 { static predicate_t call1;
   qid_t qid;
   int rval;
@@ -726,7 +726,7 @@ pl_db_transaction(term_t goal)
 		 *******************************/
 
 static foreign_t
-pl_db_put(term_t handle, term_t key, term_t value)
+pl_bdb_put(term_t handle, term_t key, term_t value)
 { DBT k, v;
   dbh *db;
   int flags = 0;
@@ -748,7 +748,7 @@ pl_db_put(term_t handle, term_t key, term_t value)
 
 
 static foreign_t
-pl_db_del2(term_t handle, term_t key)
+pl_bdb_del2(term_t handle, term_t key)
 { DBT k;
   dbh *db;
   int flags = 0;			/* current no flags in DB */
@@ -781,7 +781,7 @@ equal_dbt(DBT *a, DBT *b)
 
 
 static foreign_t
-pl_db_getall(term_t handle, term_t key, term_t value)
+pl_bdb_getall(term_t handle, term_t key, term_t value)
 { DBT k, v;
   dbh *db;
   int rval;
@@ -870,7 +870,7 @@ typedef struct _dbget_ctx
 
 
 static foreign_t
-pl_db_enum(term_t handle, term_t key, term_t value, control_t ctx)
+pl_bdb_enum(term_t handle, term_t key, term_t value, control_t ctx)
 { DBT k, v;
   dbh *db;
   int rval = 0;
@@ -961,7 +961,7 @@ out:
 
 
 static foreign_t
-pl_db_getdel(term_t handle, term_t key, term_t value, control_t ctx, int del)
+pl_bdb_getdel(term_t handle, term_t key, term_t value, control_t ctx, int del)
 { dbh *db;
   int rval = 0;
   dbget_ctx *c = NULL;
@@ -1072,20 +1072,20 @@ out:
 
 
 static foreign_t
-pl_db_get(term_t handle, term_t key, term_t value, control_t ctx)
+pl_bdb_get(term_t handle, term_t key, term_t value, control_t ctx)
 { int rval;
 
-  NOSIG(rval = pl_db_getdel(handle, key, value, ctx, FALSE));
+  NOSIG(rval = pl_bdb_getdel(handle, key, value, ctx, FALSE));
 
   return rval;
 }
 
 
 static foreign_t
-pl_db_del3(term_t handle, term_t key, term_t value, control_t ctx)
+pl_bdb_del3(term_t handle, term_t key, term_t value, control_t ctx)
 { int rval;
 
-  NOSIG(rval=pl_db_getdel(handle, key, value, ctx, TRUE));
+  NOSIG(rval=pl_bdb_getdel(handle, key, value, ctx, TRUE));
 
   return rval;
 }
@@ -1119,9 +1119,9 @@ typedef struct _server_info
 
 static void
 #ifdef DB43
-pl_db_error(const DB_ENV *dbenv, const char *prefix, const char *msg)
+pl_bdb_error(const DB_ENV *dbenv, const char *prefix, const char *msg)
 #else
-pl_db_error(const char *prefix, char *msg)
+pl_bdb_error(const char *prefix, char *msg)
 #endif
 { Sdprintf("%s%s\n", prefix, msg);
 }
@@ -1244,7 +1244,7 @@ lookup_flag(atom_t name, term_t arg)
 
 
 static foreign_t
-pl_db_init(term_t option_list)
+pl_bdb_init(term_t option_list)
 { int rval;
   term_t options = PL_copy_term_ref(option_list);
   u_int32_t flags = 0;
@@ -1284,7 +1284,7 @@ pl_db_init(term_t option_list)
   }
 
   db_env->set_errpfx(db_env, "db4pl: ");
-  db_env->set_errcall(db_env, pl_db_error);
+  db_env->set_errcall(db_env, pl_bdb_error);
 
   flags |= DB_INIT_MPOOL;		/* always needed? */
 
@@ -1385,7 +1385,7 @@ db_error:
 }
 
 static foreign_t
-pl_db_exit(void)
+pl_bdb_exit(void)
 { cleanup();
 
   return TRUE;
@@ -1397,7 +1397,7 @@ pl_db_exit(void)
 		 *******************************/
 
 static foreign_t
-pl_db_atom(term_t handle, term_t atom, term_t id)
+pl_bdb_atom(term_t handle, term_t atom, term_t id)
 { dbh *db;
   atom_t a;
   long lv;
@@ -1427,21 +1427,21 @@ install_t
 install(void)
 { initConstants();
 
-  PL_register_foreign("db_open",   4, pl_db_open,   0);
-  PL_register_foreign("db_close",  1, pl_db_close,  0);
-  PL_register_foreign("db_is_open",1, pl_db_is_open,0);
-  PL_register_foreign("db_put",    3, pl_db_put,    0);
-  PL_register_foreign("db_del",    2, pl_db_del2,   0);
-  PL_register_foreign("db_del",    3, pl_db_del3,   PL_FA_NONDETERMINISTIC);
-  PL_register_foreign("db_getall", 3, pl_db_getall, 0);
-  PL_register_foreign("db_get",    3, pl_db_get,    PL_FA_NONDETERMINISTIC);
-  PL_register_foreign("db_enum",   3, pl_db_enum,   PL_FA_NONDETERMINISTIC);
-  PL_register_foreign("db_init",   1, pl_db_init,   0);
-  PL_register_foreign("db_exit",   0, pl_db_exit,   0);
-  PL_register_foreign("db_transaction", 1, pl_db_transaction,
+  PL_register_foreign("bdb_open",   4, pl_bdb_open,   0);
+  PL_register_foreign("bdb_close",  1, pl_bdb_close,  0);
+  PL_register_foreign("bdb_is_open",1, pl_bdb_is_open,0);
+  PL_register_foreign("bdb_put",    3, pl_bdb_put,    0);
+  PL_register_foreign("bdb_del",    2, pl_bdb_del2,   0);
+  PL_register_foreign("bdb_del",    3, pl_bdb_del3,   PL_FA_NONDETERMINISTIC);
+  PL_register_foreign("bdb_getall", 3, pl_bdb_getall, 0);
+  PL_register_foreign("bdb_get",    3, pl_bdb_get,    PL_FA_NONDETERMINISTIC);
+  PL_register_foreign("bdb_enum",   3, pl_bdb_enum,   PL_FA_NONDETERMINISTIC);
+  PL_register_foreign("bdb_init",   1, pl_bdb_init,   0);
+  PL_register_foreign("bdb_exit",   0, pl_bdb_exit,   0);
+  PL_register_foreign("bdb_transaction", 1, pl_bdb_transaction,
 						    PL_FA_TRANSPARENT);
 
-  PL_register_foreign("db_atom",  3, pl_db_atom,  0);
+  PL_register_foreign("bdb_atom",  3, pl_bdb_atom,  0);
 
   pthread_key_create(&transaction_key, free_transaction_stack);
 }

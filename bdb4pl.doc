@@ -4,7 +4,7 @@
 
 \onefile
 \htmloutput{.}					% Output directory
-\htmlmainfile{db4pl}				% Main document file
+\htmlmainfile{bdb4pl}				% Main document file
 \bodycolor{white}				% Page colour
 
 \begin{document}
@@ -74,7 +74,7 @@ usage, formats, configuration options etc. This interface passed default
 values for most DB API calls. Supported options hint to the
 corresponding DB API calls, which should be consulted for details.
 
-\input{db.tex}
+\input{bdb.tex}
 
 \section{Copyright and license}
 \label{sec:db-copyright}

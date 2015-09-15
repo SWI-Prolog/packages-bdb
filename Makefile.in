@@ -4,20 +4,20 @@
 # Copyright: LGPL (see COPYING or www.gnu.org
 ################################################################
 
-PACKAGE=db
-DOC=db4pl
+PACKAGE=bdb
+DOC=bdb4pl
 include ../Makefile.defs
 CFLAGS+= -I.
 # COFLAGS=-gdwarf-2 -g3
 
-LIBPL=		db.pl
-TARGETS=	db4pl.$(SO)
+LIBPL=		bdb.pl
+TARGETS=	bdb4pl.$(SO)
 
-DBOBJ=		db4pl.o atom.o error.o
+DBOBJ=		bdb4pl.o atom.o error.o
 
 all:		$(TARGETS)
 
-db4pl.$(SO):	$(DBOBJ)
+bdb4pl.$(SO):	$(DBOBJ)
 		$(LD) $(LDSOFLAGS) -o $@ $(DBOBJ) @LIBS@
 
 install:	$(TARGETS) $(LIBPL)
@@ -52,18 +52,18 @@ uninstall:
 # Documentation
 ################################################################
 
-TEXEXTRA=	db.tex
+TEXEXTRA=	bdb.tex
 $(TEX):		$(TEXEXTRA)
 
-db.tex:		db.pl
-		$(PLTOTEX) --out=$@ --section 'library(db)'
+bdb.tex:	bdb.pl
+		$(PLTOTEX) --out=$@ --section 'library(bdb)'
 
 ################################################################
 # Check
 ################################################################
 
 check::
-		$(PL) -q -f test_db.pl -g test_db,halt -t 'halt(1)'
+		$(PL) -q -f test_bdb.pl -g test_bdb,halt -t 'halt(1)'
 
 ################################################################
 # Clean
