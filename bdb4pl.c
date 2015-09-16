@@ -940,10 +940,15 @@ pl_bdb_getall(term_t handle, term_t key, term_t value)
       for(;;)
       { NOSIG(rval=cursor->c_get(cursor, &k2, &v, DB_NEXT));
 
-	if ( rval == 0 && equal_dbt(&k, &k2) )
-	{ if ( PL_unify_list(tail, head, tail) &&
-	       unify_dbt(head, db->value_type, &v) )
-	    continue;
+	if ( rval == 0 )
+	{ if ( equal_dbt(&k, &k2) )
+	  { int ok = ( PL_unify_list(tail, head, tail) &&
+		       unify_dbt(head, db->value_type, &v) );
+	    free_result_dbt(&v);
+	    if ( ok )
+	      continue;
+	  }
+	  free_result_dbt(&v);
 	}
 
 	NOSIG(cursor->c_close(cursor);
@@ -1019,10 +1024,14 @@ pl_bdb_enum(term_t handle, term_t key, term_t value, control_t ctx)
 
       rval = c->cursor->c_get(c->cursor, &c->key, &c->value, DB_FIRST);
       if ( rval == 0 )
-      { fid = PL_open_foreign_frame();
+      { int rc;
 
-	if ( unify_dbt(key, db->key_type, &c->key) &&
-	     unify_dbt(value, db->value_type, &c->value) )
+	fid = PL_open_foreign_frame();
+	rc = ( unify_dbt(key, db->key_type, &c->key) &&
+	       unify_dbt(value, db->value_type, &c->value) );
+	free_result_dbt(&c->key);
+	free_result_dbt(&c->value);
+	if ( rc )
 	{ PL_close_foreign_frame(fid);
 	  PL_retry_address(c);
 	}
@@ -1040,10 +1049,16 @@ pl_bdb_enum(term_t handle, term_t key, term_t value, control_t ctx)
       { rval = c->cursor->c_get(c->cursor, &c->k2, &c->value, DB_NEXT);
 
 	if ( rval == 0 )
-	{ if ( !fid )
+	{ int rc;
+
+	  if ( !fid )
 	    fid = PL_open_foreign_frame();
-	  if ( unify_dbt(key, db->key_type, &c->k2) &&
-	       unify_dbt(value, db->value_type, &c->value) )
+
+	  rc =  ( unify_dbt(key, db->key_type, &c->k2) &&
+		  unify_dbt(value, db->value_type, &c->value) );
+	  free_result_dbt(&c->key);
+	  free_result_dbt(&c->value);
+	  if ( rc )
 	  { PL_close_foreign_frame(fid);
 	    PL_retry_address(c);
 	  }
@@ -1110,9 +1125,13 @@ pl_bdb_getdel(term_t handle, term_t key, term_t value, control_t ctx, int del)
 
 	rval = c->cursor->c_get(c->cursor, &c->key, &c->value, DB_SET);
 	if ( rval == 0 )
-	{ fid = PL_open_foreign_frame();
+	{ int rc;
 
-	  if ( unify_dbt(value, db->value_type, &c->value) )
+	  fid = PL_open_foreign_frame();
+	  rc = unify_dbt(value, db->value_type, &c->value);
+	  free_result_dbt(&c->value);
+
+	  if ( rc )
 	  { DO_DEL;
 
 	    PL_close_foreign_frame(fid);
