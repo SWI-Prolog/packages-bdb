@@ -84,6 +84,17 @@ Accessing a database consists of four steps:
     3. Accessing the data using bdb_put/3, bdb_get/3, etc.
     4. Closing a database using bdb_close/1. When omitted, all open
        databases are closed on program halt (see at_halt/1).
+
+*Errors* reported by the underlying database  are mapped to an exception
+of the form error(bdb(Code,Message,Object), _), where  `Code` is an atom
+for well known errors and an integer   for less known ones. `Message` is
+the return from the db_strerror()  function   and  `Object`  is the most
+related Prolog object, typically  a   database  or  database environment
+handle. If `Code` is  an  atom,  it   is  the  lowercase  version of the
+associated C macro after  string  the   =|DB_|=  prefix.  Currently  the
+following atom-typed codes are  defined: `lock_deadlock`, `runrecovery`,
+`notfound`,    `keyempty`,    `keyexist`,      `lock_notgranted`     and
+`secondary_bad`.
 */
 
 %%	bdb_init(+Options) is det.
@@ -451,5 +462,5 @@ terminate_bdb :-
 :- multifile
 	prolog:message/3.
 
-prolog:message(error(package(db, Code), context(_, Message))) -->
-	[ 'DB: Error ~w: ~w'-[Code, Message] ].
+prolog:message(error(bdb(Code, Message, Obj), _)) -->
+	[ 'BDB: Error ~w on ~p: ~w'-[Code, Obj, Message] ].
