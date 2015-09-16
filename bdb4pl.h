@@ -1,11 +1,10 @@
-/*  $Id$
-
-    Part of SWI-Prolog
+/*  Part of SWI-Prolog
 
     Author:        Jan Wielemaker
-    E-mail:        jan@swi.psy.uva.nl
+    E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (C): 1985-2002, University of Amsterdam
+    Copyright (C): 2000-2015, University of Amsterdam
+			      VU University Amsterdam
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Lesser General Public
@@ -71,16 +70,5 @@ typedef struct
   dtype		value_type;		/* type of the data */
   dbenvh       *env;			/* associated environment */
 } dbh;
-
-typedef unsigned long	atomid_t;	/* internal atom identifier */
-
-#define DB4PL_ATOM_CREATE	0x1	/* Create atoms */
-
-int	db_status(int rval);
-
-int	db_atom_id(dbh *db, atom_t a, atomid_t *id, int flags);
-int	pl_atom_from_db(dbh *db, atomid_t id, atom_t *a);
-
-//#define db_env db4pl_env
 
 #endif /*DB4PL_H_INCLUDED*/

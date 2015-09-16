@@ -428,7 +428,7 @@ free_result_dbt(DBT *dbt)
 }
 
 
-int
+static int
 db_status(int rval)
 { switch( rval )
   { case 0:
@@ -1227,7 +1227,7 @@ cleanup(dbenvh *env, int silent)
 
 
 		 /*******************************
-		 *	     APPINIT		*
+		 *     DATABASE ENVIRONMENTS    *
 		 *******************************/
 
 typedef struct _server_info
