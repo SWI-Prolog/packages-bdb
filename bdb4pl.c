@@ -45,35 +45,35 @@
 #define DEBUG(g) (void)0
 #endif
 
-static atom_t ATOM_read;
-static atom_t ATOM_update;
-static atom_t ATOM_true;
-static atom_t ATOM_false;
+static atom_t ATOM_atom;
 static atom_t ATOM_btree;
-static atom_t ATOM_hash;
-static atom_t ATOM_recno;
-static atom_t ATOM_unknown;
+static atom_t ATOM_c_blob;
+static atom_t ATOM_c_long;
+static atom_t ATOM_c_string;
+static atom_t ATOM_client_timeout;
+static atom_t ATOM_config;
+static atom_t ATOM_database;
 static atom_t ATOM_duplicates;
+static atom_t ATOM_environment;
+static atom_t ATOM_false;
+static atom_t ATOM_hash;
+static atom_t ATOM_home;
+static atom_t ATOM_key;
 static atom_t ATOM_mp_mmapsize;
 static atom_t ATOM_mp_size;
-static atom_t ATOM_home;
-static atom_t ATOM_config;
-static atom_t ATOM_type;
-static atom_t ATOM_database;
-static atom_t ATOM_key;
-static atom_t ATOM_value;
-static atom_t ATOM_term;
-static atom_t ATOM_atom;
-static atom_t ATOM_c_blob;
-static atom_t ATOM_c_string;
-static atom_t ATOM_c_long;
+static atom_t ATOM_read;
+static atom_t ATOM_recno;
 static atom_t ATOM_server;
 static atom_t ATOM_server_timeout;
-static atom_t ATOM_client_timeout;
+static atom_t ATOM_term;
+static atom_t ATOM_true;
+static atom_t ATOM_type;
+static atom_t ATOM_type;
+static atom_t ATOM_unknown;
+static atom_t ATOM_update;
+static atom_t ATOM_value;
 
-static functor_t FUNCTOR_type1;
-
-static dbenvh   default_env;		/* default environment */
+static dbenvh   default_env = {0};	/* default environment */
 
 #define mkfunctor(n, a) PL_new_functor(PL_new_atom(n), a)
 
@@ -100,36 +100,36 @@ I leave it here for future reference.
 
 static void
 initConstants(void)
-{ ATOM_read	      =	PL_new_atom("read");
-  ATOM_update	      =	PL_new_atom("update");
-  ATOM_true	      =	PL_new_atom("true");
-  ATOM_false	      =	PL_new_atom("false");
+{ ATOM_atom	      =	PL_new_atom("atom");
   ATOM_btree	      =	PL_new_atom("btree");
-  ATOM_hash	      =	PL_new_atom("hash");
-  ATOM_recno	      =	PL_new_atom("recno");
-  ATOM_unknown	      =	PL_new_atom("unknown");
-  ATOM_duplicates     =	PL_new_atom("duplicates");
-  ATOM_mp_size	      =	PL_new_atom("mp_size");
-  ATOM_mp_mmapsize    =	PL_new_atom("mp_mmapsize");
-  ATOM_home	      =	PL_new_atom("home");
-  ATOM_config	      =	PL_new_atom("config");
-  ATOM_type	      =	PL_new_atom("type");
-  ATOM_database	      =	PL_new_atom("database");
-  ATOM_key	      =	PL_new_atom("key");
-  ATOM_value	      =	PL_new_atom("value");
-  ATOM_term	      =	PL_new_atom("term");
-  ATOM_atom	      =	PL_new_atom("atom");
   ATOM_c_blob	      =	PL_new_atom("c_blob");
-  ATOM_c_string	      =	PL_new_atom("c_string");
   ATOM_c_long	      =	PL_new_atom("c_long");
+  ATOM_c_string	      =	PL_new_atom("c_string");
+  ATOM_client_timeout =	PL_new_atom("client_timeout");
+  ATOM_config	      =	PL_new_atom("config");
+  ATOM_database	      =	PL_new_atom("database");
+  ATOM_duplicates     =	PL_new_atom("duplicates");
+  ATOM_environment    = PL_new_atom("environment");
+  ATOM_false	      =	PL_new_atom("false");
+  ATOM_hash	      =	PL_new_atom("hash");
+  ATOM_home	      =	PL_new_atom("home");
+  ATOM_key	      =	PL_new_atom("key");
+  ATOM_mp_mmapsize    =	PL_new_atom("mp_mmapsize");
+  ATOM_mp_size	      =	PL_new_atom("mp_size");
+  ATOM_read	      =	PL_new_atom("read");
+  ATOM_recno	      =	PL_new_atom("recno");
   ATOM_server	      =	PL_new_atom("server");
   ATOM_server_timeout =	PL_new_atom("server_timeout");
-  ATOM_client_timeout =	PL_new_atom("client_timeout");
-
-  FUNCTOR_type1	      =	mkfunctor("type", 1);
+  ATOM_term	      =	PL_new_atom("term");
+  ATOM_true	      =	PL_new_atom("true");
+  ATOM_type	      =	PL_new_atom("type");
+  ATOM_type	      = PL_new_atom("type");
+  ATOM_unknown	      =	PL_new_atom("unknown");
+  ATOM_update	      =	PL_new_atom("update");
+  ATOM_value	      =	PL_new_atom("value");
 }
 
-static void cleanup(dbenvh *env);
+static int cleanup(dbenvh *env, int silent);
 
 
 		 /*******************************
@@ -209,13 +209,14 @@ get_dbenv(term_t t, dbenvh **db_env)
     return FALSE;
   }
 
-  return PL_type_error("bdb_env", t);
+  PL_type_error("bdb_env", t);
+  return FALSE;
 }
 
 
 static int
-unify_dbenv(term_t t, dbh *db)
-{ return PL_unify_blob(t, db, sizeof(*db), &dbenv_blob);
+unify_dbenv(term_t t, dbenvh *db_env)
+{ return PL_unify_blob(t, db_env, sizeof(*db_env), &dbenv_blob);
 }
 
 
@@ -267,7 +268,7 @@ write_db(IOSTREAM *s, atom_t symbol, int flags)
 static PL_blob_t db_blob =
 { PL_BLOB_MAGIC,
   PL_BLOB_NOCOPY,
-  "db",
+  "bdb",
   release_db,
   compare_dbs,
   write_db,
@@ -451,31 +452,42 @@ db_status(int rval)
 
 
 static int
-db_type(term_t t, int *type)
+db_preoptions(term_t t, dbenvh **db_env, int *type)
 { term_t tail = PL_copy_term_ref(t);
   term_t head = PL_new_term_ref();
 
   while( PL_get_list(tail, head, tail) )
-  { if ( PL_is_functor(head, FUNCTOR_type1) )
-    { term_t a0 = PL_new_term_ref();
-      atom_t tp;
+  { atom_t name;
+    int arity;
 
-      _PL_get_arg(1, head, a0);
+    if ( PL_get_name_arity(head, &name, &arity) )
+    { if ( name == ATOM_type )
+      { term_t a0 = PL_new_term_ref();
+	atom_t tp;
 
-      if ( !PL_get_atom_ex(a0, &tp) )
-	return FALSE;
-      if ( tp == ATOM_btree )
-	*type = DB_BTREE;
-      else if ( tp == ATOM_hash )
-	*type = DB_HASH;
-      else if ( tp == ATOM_recno )
-	*type = DB_RECNO;
-      else if ( tp == ATOM_unknown )
-	*type = DB_UNKNOWN;
-      else
-	return PL_domain_error("db_type", a0);
+	_PL_get_arg(1, head, a0);
 
-      return TRUE;
+	if ( !PL_get_atom_ex(a0, &tp) )
+	  return FALSE;
+	if ( tp == ATOM_btree )
+	  *type = DB_BTREE;
+	else if ( tp == ATOM_hash )
+	  *type = DB_HASH;
+	else if ( tp == ATOM_recno )
+	  *type = DB_RECNO;
+	else if ( tp == ATOM_unknown )
+	  *type = DB_UNKNOWN;
+	else
+	  return PL_domain_error("db_type", a0);
+
+	return TRUE;
+      } else if ( name == ATOM_environment )
+      { term_t a0 = PL_new_term_ref();
+	_PL_get_arg(1, head, a0);
+
+	if ( !get_dbenv(a0, db_env) )
+	  return FALSE;
+      }
     }
   }
 
@@ -592,16 +604,19 @@ pl_bdb_open(term_t file, term_t mode, term_t handle, term_t options)
   else
     return PL_domain_error("io_mode", mode);
 
+  if ( !db_preoptions(options, &env, &type) )
+    return FALSE;
+
   dbh = calloc(1, sizeof(*dbh));
   dbh->magic = DBH_MAGIC;
+  dbh->env   = env;
   NOSIG(rval=db_create(&dbh->db, env->env, 0));
   if ( rval )
     return db_status(rval);
 
   DEBUG(Sdprintf("New DB at %p\n", dbh->db));
 
-  if ( !db_type(options, &type) ||
-       !db_options(options, dbh, &subdb) )
+  if ( !db_options(options, dbh, &subdb) )
   { dbh->db->close(dbh->db, 0);
     return FALSE;
   }
@@ -699,10 +714,8 @@ free_transaction_stack(void *ptr)
 
 
 static int
-begin_transaction(transaction *t)
-{ dbenvh *env = &default_env;
-
-  if ( env->env && (env->flags&DB_INIT_TXN) )
+begin_transaction(dbenvh *env, transaction *t)
+{ if ( env->env && (env->flags&DB_INIT_TXN) )
   { int rval;
     DB_TXN *pid, *tid;
     transaction_stack *stack;
@@ -777,16 +790,20 @@ current_transaction(void)
 
 
 static foreign_t
-pl_bdb_transaction(term_t goal)
+bdb_transaction(term_t goal, term_t environment)
 { static predicate_t call1;
   qid_t qid;
   int rval;
   struct transaction tr;
+  dbenvh *env = &default_env;
 
   if ( !call1 )
     call1 = PL_predicate("call", 1, "user");
 
-  NOSIG(rval=begin_transaction(&tr));
+  if ( environment && !get_dbenv(environment, &env) )
+    return FALSE;
+
+  NOSIG(rval=begin_transaction(env, &tr));
   if ( !rval )
     return FALSE;
 
@@ -805,6 +822,17 @@ pl_bdb_transaction(term_t goal)
 
     return FALSE;
   }
+}
+
+
+static foreign_t
+pl_bdb_transaction2(term_t goal, term_t environment)
+{ return bdb_transaction(goal, environment);
+}
+
+static foreign_t
+pl_bdb_transaction1(term_t goal)
+{ return bdb_transaction(goal, 0);
 }
 
 
@@ -1053,7 +1081,6 @@ pl_bdb_getdel(term_t handle, term_t key, term_t value, control_t ctx, int del)
   int rval = 0;
   dbget_ctx *c = NULL;
   fid_t fid = 0;
-  dbenvh *env = &default_env;
 
   switch( PL_foreign_control(ctx) )
   { case PL_FIRST_CALL:
@@ -1094,7 +1121,7 @@ pl_bdb_getdel(term_t handle, term_t key, term_t value, control_t ctx, int del)
 	if ( !get_dbt(key, db->key_type, &k) )
 	  return FALSE;
 	memset(&v, 0, sizeof(v));
-	if ( (env->flags&DB_THREAD) )
+	if ( (db->env->flags&DB_THREAD) )
 	  v.flags = DB_DBT_MALLOC;
 
 	if ( (rval=db->db->get(db->db, TheTXN, &k, &v, 0)) == 0 )
@@ -1179,17 +1206,23 @@ pl_bdb_del3(term_t handle, term_t key, term_t value, control_t ctx)
 }
 
 
-static void
-cleanup(dbenvh *env)
-{ if ( env->env )
-  { int rval;
+static int
+cleanup(dbenvh *env, int silent)
+{ int rc = TRUE;
 
-    if ( (rval=env->env->close(env->env, 0)) )
-      Sdprintf("DB: ENV close failed: %s\n", db_strerror(rval));
+  if ( env->env )
+  { if ( (rc=env->env->close(env->env, 0)) )
+    { if ( silent )
+	Sdprintf("DB: ENV close failed: %s\n", db_strerror(rc));
+      else
+	rc = db_status(rc);
+    }
 
     env->env   = NULL;
     env->flags = 0;
   }
+
+  return rc;
 }
 
 
@@ -1332,7 +1365,7 @@ lookup_flag(atom_t name, term_t arg)
 
 
 static foreign_t
-pl_bdb_init(term_t option_list)
+bdb_init(term_t newenv, term_t option_list)
 { int rval;
   term_t options = PL_copy_term_ref(option_list);
   u_int32_t flags = 0;
@@ -1341,10 +1374,17 @@ pl_bdb_init(term_t option_list)
   char *home = NULL;
   char *config[MAXCONFIG];
   int nconf = 0;
-  dbenvh *env = &default_env;
+  dbenvh *env;
+
+  if ( newenv )
+  { if ( !(env=malloc(sizeof(*env))) )
+      return PL_resource_error("memory");
+    memset(env, 0, sizeof(*env));
+  } else
+    env = &default_env;
 
   if ( env->env )
-    return pl_error(ERR_PACKAGE_INT, "db", 0, "Already initialized");
+    return pl_error(ERR_PACKAGE_INT, "bdb", 0, "Already initialized");
 
   config[0] = NULL;
 
@@ -1459,56 +1499,63 @@ pl_bdb_init(term_t option_list)
 
   if ( (rval=env->env->open(env->env, home, flags, 0666)) != 0 )
     goto db_error;
+  if ( newenv && !unify_dbenv(newenv, env) )
+    goto pl_error;
   env->flags = flags;
 
   if ( !rval )
     return TRUE;
 
 pl_error:
-  cleanup(env);
+  cleanup(env, TRUE);
   return FALSE;
 
 db_error:
-  cleanup(env);
+  cleanup(env, TRUE);
   return db_status(rval);
 }
 
 static foreign_t
 pl_bdb_exit(void)
-{ cleanup(&default_env);
-
-  return TRUE;
+{ return cleanup(&default_env, FALSE);
 }
 
 
-		 /*******************************
-		 *     TMP ATOM PROLOG STUFF	*
-		 *******************************/
+static foreign_t
+pl_bdb_init1(term_t option_list)
+{ return bdb_init(0, option_list);
+}
 
 static foreign_t
-pl_bdb_atom(term_t handle, term_t atom, term_t id)
-{ dbh *db;
-  atom_t a;
-  long lv;
-  atomid_t aid;
+pl_bdb_init2(term_t env, term_t option_list)
+{ return bdb_init(env, option_list);
+}
 
-  if ( !get_db(handle, &db) )
+static foreign_t
+pl_bdb_close_environment(term_t handle)
+{ dbenvh *db_env;
+
+  if ( get_dbenv(handle, &db_env) )
+    return cleanup(db_env, FALSE);
+
+  return FALSE;
+}
+
+static foreign_t
+pl_bdb_is_open_env(term_t t)
+{ PL_blob_t *type;
+  void *data;
+
+  if ( PL_get_blob(t, &data, NULL, &type) && type == &dbenv_blob)
+  { dbenvh *p = data;
+
+    if ( p->symbol )
+      return TRUE;
+
     return FALSE;
+  }
 
-  if ( PL_get_atom(atom, &a) )
-  { if ( !db_atom_id(db, a, &aid, DB4PL_ATOM_CREATE) )
-      return FALSE;
-
-    return PL_unify_integer(id, aid);
-  } else if ( PL_get_long(id, &lv) )
-  { aid = (atomid_t)lv;
-
-    if ( !pl_atom_from_db(db, aid, &a) )
-      return FALSE;
-
-    return PL_unify_atom(atom, a);
-  } else
-    return pl_error(ERR_TYPE, "atom", atom);
+  return PL_type_error("bdb_env", t);
 }
 
 
@@ -1517,21 +1564,24 @@ install(void)
 { initConstants();
   PL_license("agpl", "BerkeleyDB (libdb, used by library(bdb))");
 
-  PL_register_foreign("bdb_open",   4, pl_bdb_open,   0);
-  PL_register_foreign("bdb_close",  1, pl_bdb_close,  0);
-  PL_register_foreign("bdb_is_open",1, pl_bdb_is_open,0);
-  PL_register_foreign("bdb_put",    3, pl_bdb_put,    0);
-  PL_register_foreign("bdb_del",    2, pl_bdb_del2,   0);
-  PL_register_foreign("bdb_del",    3, pl_bdb_del3,   PL_FA_NONDETERMINISTIC);
-  PL_register_foreign("bdb_getall", 3, pl_bdb_getall, 0);
-  PL_register_foreign("bdb_get",    3, pl_bdb_get,    PL_FA_NONDETERMINISTIC);
-  PL_register_foreign("bdb_enum",   3, pl_bdb_enum,   PL_FA_NONDETERMINISTIC);
-  PL_register_foreign("bdb_init",   1, pl_bdb_init,   0);
-  PL_register_foreign("bdb_exit",   0, pl_bdb_exit,   0);
-  PL_register_foreign("bdb_transaction", 1, pl_bdb_transaction,
-						    PL_FA_TRANSPARENT);
+#define NDET PL_FA_NONDETERMINISTIC
 
-  PL_register_foreign("bdb_atom",  3, pl_bdb_atom,  0);
+  PL_register_foreign("bdb_open",	       4, pl_bdb_open,		    0);
+  PL_register_foreign("bdb_close",	       1, pl_bdb_close,		    0);
+  PL_register_foreign("bdb_is_open",	       1, pl_bdb_is_open,	    0);
+  PL_register_foreign("bdb_put",	       3, pl_bdb_put,		    0);
+  PL_register_foreign("bdb_del",	       2, pl_bdb_del2,		    0);
+  PL_register_foreign("bdb_del",	       3, pl_bdb_del3,		    NDET);
+  PL_register_foreign("bdb_getall",	       3, pl_bdb_getall,	    0);
+  PL_register_foreign("bdb_get",	       3, pl_bdb_get,		    NDET);
+  PL_register_foreign("bdb_enum",	       3, pl_bdb_enum,		    NDET);
+  PL_register_foreign("bdb_init",	       1, pl_bdb_init1,		    0);
+  PL_register_foreign("bdb_init",	       2, pl_bdb_init2,		    0);
+  PL_register_foreign("bdb_exit",	       0, pl_bdb_exit,		    0);
+  PL_register_foreign("bdb_close_environment", 1, pl_bdb_close_environment, 0);
+  PL_register_foreign("bdb_is_open_env",       1, pl_bdb_is_open_env,	    0);
+  PL_register_foreign("bdb_transaction",       1, pl_bdb_transaction1,	    0);
+  PL_register_foreign("bdb_transaction",       2, pl_bdb_transaction2,	    0);
 
   pthread_key_create(&transaction_key, free_transaction_stack);
 }
@@ -1543,5 +1593,5 @@ uninstall(void)
   { pthread_key_delete(transaction_key);
     transaction_key = 0;
   }
-  cleanup(&default_env);
+  cleanup(&default_env, TRUE);
 }

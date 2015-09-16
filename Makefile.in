@@ -13,7 +13,7 @@ CFLAGS+= -I.
 LIBPL=		@BDB_PLTARGETS@
 TARGETS=	@BDB_TARGETS@
 
-DBOBJ=		bdb4pl.o atom.o error.o
+DBOBJ=		bdb4pl.o error.o
 
 all:		$(TARGETS)
 

@@ -29,23 +29,30 @@
 */
 
 :- module(bdb,
-	  [ bdb_open/4,			% +File, +Mode, -Handle, +Options
-	    bdb_close/1,			% +Handle
+	  [ bdb_init/1,			% +Options
+	    bdb_init/2,			% -Environment, +Options
+	    bdb_close_environment/1,	% +Environment
+	    bdb_current_environment/1,	% -Environment
+
+	    bdb_open/4,			% +File, +Mode, -Handle, +Options
+	    bdb_close/1,		% +Handle
 	    bdb_closeall/0,		%
 	    bdb_current/1,		% -DB
+
 	    bdb_put/3,			% +DB, +Key, +Value
 	    bdb_del/3,			% +DB, +Key, ?Value
 	    bdb_delall/3,		% +DB, +Key, +Value
 	    bdb_enum/3,			% +DB, -Key, -Value
 	    bdb_get/3,			% +DB, +Key, -Value
 	    bdb_getall/3,		% +DB, +Key, -ValueList
-	    bdb_init/1,			% +Options
+
 	    bdb_transaction/1,		% :Goal
-	    bdb_atom/3			% +DB, ?Atom, ?Id
+	    bdb_transaction/2		% :Goal, +Environment
 	  ]).
 :- use_foreign_library(foreign(bdb4pl)).
 :- meta_predicate
-	bdb_transaction(0).
+	bdb_transaction(0),
+	bdb_transaction(0, +).
 
 /** <module> Berkeley DB interface
 
@@ -76,17 +83,21 @@ Accessing a database consists of four steps:
 */
 
 %%	bdb_init(+Options) is det.
+%%	bdb_init(-Environment, +Options) is det.
 %
-%	Initialise the default  DB  _environment_.   This  must  be done
-%	before the first call to  bdb_open/4   and  at  maximum once. If
-%	bdb_open/4  is  called  without    calling  bdb_init/1,  default
-%	initialisation is used, which is suitable for using a plain file
-%	as a database that is  accessed   from  a  single Prolog thread.
-%	Options is a list of options.   The  currently supported options
-%	are listed below. The name of   the  boolean options are derived
-%	from the DB  flags  by  dropping   the  =DB_=  prefix  and using
-%	lowercase, e.g. =DB_INIT_LOCK= becomes `init_lock`. For details,
-%	please refer to the DB manual.
+%	Initialise  a  DB  _environment_.    The   predicate  bdb_init/1
+%	initialises the _default_ environment,  while bdb_init/2 creates
+%	an explicit environment that can be   passed to bdb_open/4 using
+%	the environment(+Environment) option. If   bdb_init/1 is called,
+%	it must be called before the first  call to bdb_open/4 that uses
+%	the default environment.  If  bdb_init/1   is  not  called,  the
+%	default environment can only handle  plain   files  and does not
+%	support multiple threads, locking, crash recovery, etc.
+%
+%	The currently supported options are listed   below.  The name of
+%	the boolean options are derived from   the  DB flags by dropping
+%	the  =DB_=  prefix  and  using  lowercase,  e.g.  =DB_INIT_LOCK=
+%	becomes `init_lock`. For details, please refer to the DB manual.
 %
 %	  - create(+Bool)
 %	    If `true`, create any underlying file as required. By
@@ -150,6 +161,20 @@ Accessing a database consists of four steps:
 %	    Specify a list of configuration options, each option is of
 %	    the form Name(Value).  Currently unused.
 
+%%	bdb_close_environment(+Environment) is det.
+%
+%	Close a database environment that   was explicitly created using
+%	bdb_init/2.
+
+%%	bdb_current_environment(-Environment) is nondet.
+%
+%	True when Environment is a currently known environment.
+
+bdb_current_environment(Environment) :-
+	current_blob(Environment, bdb_env),
+	bdb_is_open_env(Environment).
+
+
 %%	bdb_open(+File, +Mode, -DB, +Options) is det.
 %
 %	Open File holding a database. Mode   is one of `read`, providing
@@ -165,6 +190,8 @@ Accessing a database consists of four steps:
 %	    databases if the bdb_open/4 call that created it specified
 %	    this argument. Each database in the file has its own
 %	    characteristics.
+%	  - environment(+Environment)
+%	    Specify a database environment created using bdb_init/2.
 %	  - key(+Type)
 %	  - value(+Type)
 %	    Specify the type of the key or value. Allowed values are:
@@ -262,7 +289,7 @@ bdb_delall(DB, Key, Value) :-
 %	True when DB is a handle to a currently open database.
 
 bdb_current(DB) :-
-	current_blob(DB, db),
+	current_blob(DB, bdb),
 	bdb_is_open(DB).
 
 %%	bdb_closeall is det.
@@ -272,8 +299,18 @@ bdb_current(DB) :-
 %	at_halt/1.
 
 bdb_closeall :-
+	close_databases,
+	close_environments.
+
+close_databases :-
 	forall(bdb_current(DB),
 	       catch(bdb_close(DB),
+		     E,
+		     print_message(warning, E))).
+
+close_environments :-
+	forall(bdb_current_environment(DB),
+	       catch(bdb_close_environment(DB),
 		     E,
 		     print_message(warning, E))).
 
@@ -286,7 +323,8 @@ terminate_bdb :-
 
 :- at_halt(terminate_bdb).
 
-%%	bdb_transaction(:Goal)
+%%	bdb_transaction(:Goal) is semidet.
+%%	bdb_transaction(:Goal, +Environment) is semidet.
 %
 %	Start a transaction, execute Goal and terminate the transaction.
 %	Only if Goal succeeds, the  transaction   is  commited.  If Goal
@@ -319,6 +357,10 @@ terminate_bdb :-
 %	      ;   throw(E)
 %	      ).
 %	  ==
+%
+%	@arg Environment defines the environment to which the
+%	transaction applies.  If omitted, the default environment
+%	is used.  See bdb_init/1 and bdb_init/2.
 
 		 /*******************************
 		 *	       MESSAGES		*
