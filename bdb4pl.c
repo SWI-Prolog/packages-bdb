@@ -589,6 +589,30 @@ db_options(term_t t, dbh *dbh, char **subdb)
 }
 
 
+/* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+verify that an environment that is not  initialized for threading is not
+accessed from multiple threads. Not sure whether or not an uninitialized
+default environment can be accessed from multiple threads.
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
+
+static int
+check_same_thread(dbenvh *env)
+{ if ( (env->flags&DB_THREAD) || env->thread == PL_thread_self() )
+  { return TRUE;
+  } else if ( env == &default_env && !env->thread )
+  { env->thread = PL_thread_self();
+    return TRUE;
+  } else
+  { term_t e;
+
+    if ( (e = PL_new_term_ref()) &&
+	 unify_dbenv(e, env) )
+      return PL_permission_error("access", "bdb_environment", e);
+    return FALSE;
+  }
+}
+
+
 static foreign_t
 pl_bdb_open(term_t file, term_t mode, term_t handle, term_t options)
 { char *fname;
@@ -613,7 +637,8 @@ pl_bdb_open(term_t file, term_t mode, term_t handle, term_t options)
   else
     return PL_domain_error("io_mode", mode);
 
-  if ( !db_preoptions(options, &env, &type) )
+  if ( !db_preoptions(options, &env, &type) ||
+       !check_same_thread(env) )
     return FALSE;
 
   dbh = calloc(1, sizeof(*dbh));
@@ -807,9 +832,10 @@ bdb_transaction(term_t goal, term_t environment)
   dbenvh *env = &default_env;
 
   if ( !call1 )
-    call1 = PL_predicate("call", 1, "user");
+    call1 = PL_predicate("call", 1, "system");
 
-  if ( environment && !get_dbenv(environment, &env) )
+  if ( (environment && !get_dbenv(environment, &env)) ||
+       check_same_thread(env) )
     return FALSE;
 
   NOSIG(rval=begin_transaction(env, &tr));
@@ -1246,8 +1272,9 @@ bdb_close_env(dbenvh *env, int silent)
 	rc = db_status(rc);
     }
 
-    env->env   = NULL;
-    env->flags = 0;
+    env->env	= NULL;
+    env->flags  = 0;
+    env->thread = 0;
     if ( env->home )
     { free(env->home);
       env->home = NULL;
@@ -1542,6 +1569,8 @@ bdb_init(term_t newenv, term_t option_list)
 
   env->flags = flags;
   env->home  = strdup(home);
+  if ( !(flags&DB_THREAD) )
+    env->thread = PL_thread_self();
 
   if ( !rval )
     return TRUE;

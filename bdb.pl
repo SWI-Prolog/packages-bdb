@@ -283,6 +283,9 @@ env_property(thread(_)).
 %
 %	@arg DB is unified with a _blob_ of type `db`. Database handles
 %	are subject to atom garbage collection.
+%	@error permission_error(access, bdb_environment, Env) if an
+%	environment is not thread-enabled and accessed from multiple
+%	threads.
 
 %%	bdb_close(+DB) is det.
 %
