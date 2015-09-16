@@ -74,6 +74,9 @@ static atom_t ATOM_unknown;
 static atom_t ATOM_update;
 static atom_t ATOM_value;
 
+static functor_t FUNCTOR_error2;
+static functor_t FUNCTOR_bdb3;
+
 static dbenvh   default_env = {0};	/* default environment */
 
 #define mkfunctor(n, a) PL_new_functor(PL_new_atom(n), a)
@@ -129,6 +132,9 @@ initConstants(void)
   ATOM_unknown	      =	PL_new_atom("unknown");
   ATOM_update	      =	PL_new_atom("update");
   ATOM_value	      =	PL_new_atom("value");
+
+  FUNCTOR_error2      = PL_new_functor(PL_new_atom("error"), 2);
+  FUNCTOR_bdb3        = PL_new_functor(PL_new_atom("bdb"),   3);
 }
 
 static int bdb_close_env(dbenvh *env, int silent);
@@ -437,28 +443,81 @@ free_result_dbt(DBT *dbt)
 }
 
 
+typedef struct
+{ int id;
+  const char *str;
+} err_def;
+
+static const err_def errors[] =
+{ { DB_LOCK_DEADLOCK,	"lock_deadlock" },
+  { DB_RUNRECOVERY,	"runrecovery" },
+  { DB_NOTFOUND,	"notfound" },
+  { DB_KEYEMPTY,	"keyempty" },
+  { DB_KEYEXIST,	"keyexist" },
+  { DB_LOCK_NOTGRANTED,	"lock_notgranted" },
+  { DB_SECONDARY_BAD,	"secondary_bad" },
+  { 0,			NULL }
+};
+
+
 static int
-db_status(int rval)
-{ switch( rval )
-  { case 0:
-      return TRUE;
-    case DB_LOCK_DEADLOCK:
-      Sdprintf("Throwing deadlock exception\n");
-      return pl_error(ERR_PACKAGE_ID, "db", "deadlock", db_strerror(rval));
-    case DB_RUNRECOVERY:
-      Sdprintf("Need recovery\n");
-      return pl_error(ERR_PACKAGE_ID, "db", "run_recovery", db_strerror(rval));
-  }
+db_status(int rval, term_t obj)
+{ if ( rval == 0 )
+    return TRUE;
 
   if ( rval < 0 )
   { DEBUG(Sdprintf("DB error: %s\n", db_strerror(rval)));
     return FALSE;			/* normal failure */
-  }
+  } else
+  { const char *id_str = NULL;
+    const err_def *ed;
+    term_t ex, id=0;
 
-  DEBUG(Sdprintf("Throwing error: %s\n", db_strerror(rval)));
-  return pl_error(ERR_PACKAGE_INT, "db", rval, db_strerror(rval));
+    for(ed=errors; ed->id; ed++)
+    { if ( ed->id == rval )
+      { id_str = ed->str;
+	break;
+      }
+    }
+
+    if ( (ex = PL_new_term_ref()) &&
+	 (id = PL_new_term_ref()) &&
+	 (id_str ? PL_unify_atom_chars(id, id_str)
+		 : PL_unify_integer(id, rval)),
+	 PL_unify_term(ex,
+		       PL_FUNCTOR, FUNCTOR_error2,
+			 PL_FUNCTOR, FUNCTOR_bdb3,
+			   PL_TERM, id,
+			   PL_CHARS, db_strerror(rval),
+			   PL_TERM, obj) )
+      return PL_raise_exception(ex);
+
+    return FALSE;
+  }
 }
 
+
+static int
+db_status_db(int rval, dbh *dbh)
+{ term_t db;
+
+  if ( (db = PL_new_term_ref()) &&
+       unify_db(db, dbh) )
+    return db_status(rval, db);
+
+  return FALSE;
+}
+
+static int
+db_status_env(int rval, dbenvh *db_env)
+{ term_t env;
+
+  if ( (env = PL_new_term_ref()) &&
+       unify_dbenv(env, db_env) )
+    return db_status(rval, env);
+
+  return FALSE;
+}
 
 static int
 db_preoptions(term_t t, dbenvh **db_env, int *type)
@@ -581,7 +640,7 @@ db_options(term_t t, dbh *dbh, char **subdb)
   { int rval;
 
     if ( (rval=dbh->db->set_flags(dbh->db, flags)) )
-      return db_status(rval);
+      return db_status_db(rval, dbh);
   }
 
 
@@ -646,7 +705,7 @@ pl_bdb_open(term_t file, term_t mode, term_t handle, term_t options)
   dbh->env   = env;
   NOSIG(rval=db_create(&dbh->db, env->env, 0));
   if ( rval )
-    return db_status(rval);
+    return db_status(rval, file);
 
   DEBUG(Sdprintf("New DB at %p\n", dbh->db));
 
@@ -665,7 +724,7 @@ pl_bdb_open(term_t file, term_t mode, term_t handle, term_t options)
 
   if ( rval )
   { dbh->db->close(dbh->db, 0);
-    return db_status(rval);
+    return db_status_db(rval, dbh);
   }
 
   return unify_db(handle, dbh);
@@ -683,7 +742,7 @@ pl_bdb_close(term_t handle)
     NOSIG(rval = db->db->close(db->db, 0);
 	  db->symbol = 0);
 
-    return db_status(rval);
+    return db_status(rval, handle);
   }
 
   return FALSE;
@@ -716,6 +775,7 @@ static pthread_key_t transaction_key;
 typedef struct transaction
 { DB_TXN *tid;				/* transaction id */
   struct transaction *parent;		/* parent id */
+  dbenvh *env;				/* environment of the transaction */
 } transaction;
 
 typedef struct transaction_stack
@@ -763,17 +823,22 @@ begin_transaction(dbenvh *env, transaction *t)
       pid = NULL;
 
     if ( (rval=env->env->txn_begin(env->env, pid, &tid, 0)) )
-      return db_status(rval);
+      return db_status_env(rval, env);
 
     t->parent = stack->top;
     t->tid = tid;
+    t->env = env;
     stack->top = t;
 
     return TRUE;
-  }
+  } else
+  { term_t ex;
 
-  return pl_error(ERR_PACKAGE_INT, "db", 0,
-		  "Not initialized for transactions");
+    if ( (ex=PL_new_term_ref()) &&
+	 unify_dbenv(ex, env) )
+      return PL_permission_error("start", "transaction", ex);
+    return FALSE;
+  }
 }
 
 
@@ -788,7 +853,7 @@ commit_transaction(transaction *t)
   stack->top = t->parent;
 
   if ( (rval=t->tid->commit(t->tid, 0)) )
-    return db_status(rval);
+    return db_status_env(rval, t->env);
 
   return TRUE;
 }
@@ -805,7 +870,7 @@ abort_transaction(transaction *t)
   stack->top = t->parent;
 
   if ( (rval=t->tid->abort(t->tid)) )
-    return db_status(rval);
+    return db_status_env(rval, t->env);
 
   return TRUE;
 }
@@ -889,7 +954,7 @@ pl_bdb_put(term_t handle, term_t key, term_t value)
        !get_dbt(value, db->value_type, &v) )
     return FALSE;
 
-  NOSIG(rval = db_status(db->db->put(db->db, TheTXN, &k, &v, flags)));
+  NOSIG(rval = db_status(db->db->put(db->db, TheTXN, &k, &v, flags), handle));
   free_dbt(&k, db->key_type);
   free_dbt(&v, db->value_type);
 
@@ -910,7 +975,7 @@ pl_bdb_del2(term_t handle, term_t key)
   if ( !get_dbt(key, db->key_type, &k) )
     return FALSE;
 
-  NOSIG(rval = db_status(db->db->del(db->db, TheTXN, &k, flags)));
+  NOSIG(rval = db_status(db->db->del(db->db, TheTXN, &k, flags), handle));
   free_dbt(&k, db->key_type);
 
   return rval;
@@ -950,7 +1015,7 @@ pl_bdb_getall(term_t handle, term_t key, term_t value)
 
     NOSIG(rval=db->db->cursor(db->db, TheTXN, &cursor, 0));
     if ( rval )
-      return db_status(rval);
+      return db_status(rval, handle);
 
     NOSIG(rval=cursor->c_get(cursor, &k, &v, DB_SET));
     if ( rval == 0 )
@@ -983,7 +1048,7 @@ pl_bdb_getall(term_t handle, term_t key, term_t value)
 	if ( rval <= 0 )		/* normal failure */
 	{ return PL_unify_nil(tail);
 	} else				/* error failure */
-	{ return db_status(rval);
+	{ return db_status(rval, handle);
 	}
       }
     } else if ( rval == DB_NOTFOUND )
@@ -991,7 +1056,7 @@ pl_bdb_getall(term_t handle, term_t key, term_t value)
       return FALSE;
     } else
     { free_dbt(&k, db->key_type);
-      return db_status(rval);
+      return db_status(rval, handle);
     }
   } else
   { NOSIG(rval=db->db->get(db->db, TheTXN, &k, &v, 0));
@@ -1010,7 +1075,7 @@ pl_bdb_getall(term_t handle, term_t key, term_t value)
 
       return FALSE;
     } else
-      return db_status(rval);
+      return db_status(rval, handle);
   }
 }
 
@@ -1044,7 +1109,7 @@ pl_bdb_enum(term_t handle, term_t key, term_t value, control_t ctx)
       c->db = db;
       if ( (rval=db->db->cursor(db->db, TheTXN, &c->cursor, 0)) )
       { free(c);
-	return db_status(rval);
+	return db_status(rval, handle);
       }
       DEBUG(Sdprintf("Created cursor at %p\n", c->cursor));
 
@@ -1111,7 +1176,7 @@ out:
   if ( fid )
     PL_close_foreign_frame(fid);
 
-  db_status(rval);
+  db_status(rval, handle);
   return FALSE;				/* also on rval = 0! */
 }
 
@@ -1120,7 +1185,7 @@ out:
 	if ( del ) \
 	{ do \
 	  { if ( (rval=c->cursor->c_del(c->cursor, 0)) != 0 ) \
-	      return db_status(rval); \
+	      return db_status(rval, handle); \
 	  } while(0); \
 	}
 
@@ -1143,7 +1208,7 @@ pl_bdb_getdel(term_t handle, term_t key, term_t value, control_t ctx, int del)
 	c->db = db;
 	if ( (rval=db->db->cursor(db->db, TheTXN, &c->cursor, 0)) )
 	{ free(c);
-	  return db_status(rval);
+	  return db_status(rval, handle);
 	}
 	DEBUG(Sdprintf("Created cursor at %p\n", c->cursor));
 	if ( !get_dbt(key, db->key_type, &c->key) )
@@ -1185,10 +1250,10 @@ pl_bdb_getdel(term_t handle, term_t key, term_t value, control_t ctx, int del)
 	  if ( rc && del )
 	  { int flags = 0;
 
-	    rc = db_status(db->db->del(db->db, TheTXN, &k, flags));
+	    rc = db_status(db->db->del(db->db, TheTXN, &k, flags), handle);
 	  }
 	} else
-	  rc = db_status(rval);
+	  rc = db_status(rval, handle);
 
 	free_dbt(&k, db->key_type);
 
@@ -1235,7 +1300,7 @@ out:
   if ( fid )
     PL_close_foreign_frame(fid);
 
-  db_status(rval);
+  db_status(rval, handle);
   return FALSE;				/* also on rval = 0! */
 }
 
@@ -1269,7 +1334,7 @@ bdb_close_env(dbenvh *env, int silent)
     { if ( silent )
 	Sdprintf("DB: ENV close failed: %s\n", db_strerror(rc));
       else
-	rc = db_status(rc);
+	rc = db_status_env(rc, env);
     }
 
     env->env	= NULL;
@@ -1448,7 +1513,13 @@ bdb_init(term_t newenv, term_t option_list)
     env = &default_env;
 
   if ( env->env )
-    return pl_error(ERR_PACKAGE_INT, "bdb", 0, "Already initialized");
+  { term_t e;
+
+    if ( (e=PL_new_term_ref()) &&
+	 unify_dbenv(e, env) )
+      return PL_permission_error("initialize", "environment", e);
+    return FALSE;
+  }
 
   config[0] = NULL;
 
@@ -1580,8 +1651,9 @@ pl_error:
   return FALSE;
 
 db_error:
+  db_status_env(rval, env);
   bdb_close_env(env, TRUE);
-  return db_status(rval);
+  return FALSE;
 }
 
 static foreign_t
