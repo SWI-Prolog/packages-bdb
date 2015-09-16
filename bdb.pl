@@ -55,7 +55,7 @@
 :- use_foreign_library(foreign(bdb4pl)).
 :- meta_predicate
 	bdb_transaction(0),
-	bdb_transaction(0, +).
+	bdb_transaction(+, 0).
 
 /** <module> Berkeley DB interface
 
@@ -405,7 +405,7 @@ terminate_bdb :-
 :- at_halt(terminate_bdb).
 
 %%	bdb_transaction(:Goal) is semidet.
-%%	bdb_transaction(:Goal, +Environment) is semidet.
+%%	bdb_transaction(+Environment, :Goal) is semidet.
 %
 %	Start a transaction, execute Goal and terminate the transaction.
 %	Only if Goal succeeds, the  transaction   is  commited.  If Goal

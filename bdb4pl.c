@@ -624,7 +624,7 @@ db_options(term_t t, dbh *dbh, char **subdb)
 	} else if ( name == ATOM_value )
 	{ if ( !get_dtype(a0, &dbh->value_type) )
 	    return FALSE;
-	} else if ( name == ATOM_type )
+	} else if ( name == ATOM_type || name == ATOM_environment )
 	    ;  /* skip [ ... type(_) ... ]  because it's handled by db_type */
 	else
 	    return PL_domain_error("db_option", head);
@@ -889,7 +889,7 @@ current_transaction(void)
 
 
 static foreign_t
-bdb_transaction(term_t goal, term_t environment)
+bdb_transaction(term_t environment, term_t goal)
 { static predicate_t call1;
   qid_t qid;
   int rval;
@@ -900,7 +900,7 @@ bdb_transaction(term_t goal, term_t environment)
     call1 = PL_predicate("call", 1, "system");
 
   if ( (environment && !get_dbenv(environment, &env)) ||
-       check_same_thread(env) )
+       !check_same_thread(env) )
     return FALSE;
 
   NOSIG(rval=begin_transaction(env, &tr));
@@ -926,13 +926,13 @@ bdb_transaction(term_t goal, term_t environment)
 
 
 static foreign_t
-pl_bdb_transaction2(term_t goal, term_t environment)
-{ return bdb_transaction(goal, environment);
+pl_bdb_transaction2(term_t environment, term_t goal)
+{ return bdb_transaction(environment, goal);
 }
 
 static foreign_t
 pl_bdb_transaction1(term_t goal)
-{ return bdb_transaction(goal, 0);
+{ return bdb_transaction(0, goal);
 }
 
 
@@ -1330,11 +1330,14 @@ bdb_close_env(dbenvh *env, int silent)
 { int rc = TRUE;
 
   if ( env->env )
-  { if ( (rc=env->env->close(env->env, 0)) )
-    { if ( silent )
+  { int rval = env->env->close(env->env, 0);
+
+    if ( silent )			/* do not throw exceptions */
+    { if ( rval )
 	Sdprintf("DB: ENV close failed: %s\n", db_strerror(rc));
-      else
-	rc = db_status_env(rc, env);
+      rc = !rval;
+    } else
+    { rc = db_status_env(rval, env);
     }
 
     env->env	= NULL;
