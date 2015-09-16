@@ -75,9 +75,10 @@ Prolog terms including cycles and constraints in the database.
 
 Accessing a database consists of four steps:
 
-    1. Initialise the DB environment using bdb_init/1. This step is
-       optional, providing simple non-transactional file access when
-       omitted.
+    1. Initialise the default DB environment using bdb_init/1 or
+       create an explicit DB environment using dbb_init/2. This
+       step is optional, providing simple non-transactional file access
+       when omitted.
     2. Open a database using bdb_open/4, returning a handle to the
        database.
     3. Accessing the data using bdb_put/3, bdb_get/3, etc.
@@ -97,6 +98,10 @@ Accessing a database consists of four steps:
 %	default environment can only handle  plain   files  and does not
 %	support multiple threads, locking, crash recovery, etc.
 %
+%	Initializing a BDB environment always   requires  the home(+Dir)
+%	option. If the environment contains   no databases, the argument
+%	create(true) must be supplied as well.
+%
 %	The currently supported options are listed   below.  The name of
 %	the boolean options are derived from   the  DB flags by dropping
 %	the  =DB_=  prefix  and  using  lowercase,  e.g.  =DB_INIT_LOCK=
@@ -109,7 +114,8 @@ Accessing a database consists of four steps:
 %	  - failchk(+Bool)
 %	  - home(+Home)
 %	    Specify the DB home directory, the directory holding the
-%	    database files.
+%	    database files.  The directory must exist prior to calling
+%	    these predicates.
 %	  - init_lock(+Bool)
 %	    Enable locking (=DB_INIT_LOCK=).  Implied if transactions
 %	    are used.
