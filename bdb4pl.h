@@ -58,6 +58,7 @@ typedef struct
   atom_t	symbol;			/* <bdb_env>(...)  */
   int		magic;			/* DBH_MAGIC */
   u_int32_t	flags;			/* flags used to create the env */
+  char	       *home;			/* Directory */
 } dbenvh;
 
 typedef struct

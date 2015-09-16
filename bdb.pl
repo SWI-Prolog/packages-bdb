@@ -33,6 +33,7 @@
 	    bdb_init/2,			% -Environment, +Options
 	    bdb_close_environment/1,	% +Environment
 	    bdb_current_environment/1,	% -Environment
+	    bdb_environment_property/2,	% ?Environment, ?Property
 
 	    bdb_open/4,			% +File, +Mode, -Handle, +Options
 	    bdb_close/1,		% +Handle
@@ -47,7 +48,9 @@
 	    bdb_getall/3,		% +DB, +Key, -ValueList
 
 	    bdb_transaction/1,		% :Goal
-	    bdb_transaction/2		% :Goal, +Environment
+	    bdb_transaction/2,		% :Goal, +Environment
+
+	    bdb_version/1		% -Version
 	  ]).
 :- use_foreign_library(foreign(bdb4pl)).
 :- meta_predicate
@@ -171,8 +174,67 @@ Accessing a database consists of four steps:
 %	True when Environment is a currently known environment.
 
 bdb_current_environment(Environment) :-
-	current_blob(Environment, bdb_env),
+	bdb_current_environment_(Environment),
 	bdb_is_open_env(Environment).
+
+bdb_current_environment_(Env) :-
+	(   var(Env)
+	->  (   Env = default
+	    ;	current_blob(Env, bdb_env)
+	    )
+	;   (   Env == default
+	    ->	true
+	    ;	current_blob(Env, bdb_env)
+	    )
+	).
+
+%%	bdb_environment_property(?Environment, ?Property) is nondet.
+%
+%	True when Property is a property of Environment.  Defined
+%	properties are all boolean options defined with bdb_init/2
+%	and the following options:
+%
+%	  - home(-Path)
+%	    Path is the absolute path name for the directory used
+%	    as database environment.
+%	  - open(-Boolean)
+%	    True if the environment is open.
+
+bdb_environment_property(Env, Property) :-
+	bdb_current_environment_(Env),
+	(   bdb_is_open_env(Env)
+	->  (   var(Property)
+	    ->	env_property(Property),
+		bdb_env_property_(Env, Property)
+	    ;	bdb_env_property_(Env, Property)
+	    )
+	;   Property = open(false)
+	).
+
+bdb_env_property_(Env, home(Home)) :- !,
+	bdb_env_property(Env, home(Home0)),
+	prolog_to_os_filename(Home, Home0).
+bdb_env_property_(Env, Prop) :-
+	bdb_env_property(Env, Prop).
+
+env_property(open(true)).
+env_property(home(_)).
+env_property(init_lock(_)).
+env_property(init_log(_)).
+env_property(init_mpool(_)).
+env_property(init_rep(_)).
+env_property(init_txn(_)).
+env_property(recover(_)).
+env_property(recover_fatal(_)).
+env_property(use_environ(_)).
+env_property(use_environ_root(_)).
+env_property(create(_)).
+env_property(lockdown(_)).
+env_property(failchk(_)).
+env_property(private(_)).
+env_property(register(_)).
+env_property(system_mem(_)).
+env_property(thread(_)).
 
 
 %%	bdb_open(+File, +Mode, -DB, +Options) is det.
@@ -294,9 +356,9 @@ bdb_current(DB) :-
 
 %%	bdb_closeall is det.
 %
-%	Close all currently open databases. This is called automatically
-%	after  loading  this  library  on  process  terminatation  using
-%	at_halt/1.
+%	Close all currently open  databases   and  environments. This is
+%	called automatically after  loading  this   library  on  process
+%	terminatation using at_halt/1.
 
 bdb_closeall :-
 	close_databases,
@@ -315,9 +377,8 @@ close_environments :-
 		     print_message(warning, E))).
 
 terminate_bdb :-
-	(   current_predicate(bdb_exit/0)	% library was loaded ok
-	->  bdb_closeall,
-	    catch(bdb_exit, E, print_message(warning, E))
+	(   current_predicate(bdb_init/1)	% library was loaded ok
+	->  bdb_closeall
 	;   true
 	).
 
@@ -361,6 +422,18 @@ terminate_bdb :-
 %	@arg Environment defines the environment to which the
 %	transaction applies.  If omitted, the default environment
 %	is used.  See bdb_init/1 and bdb_init/2.
+
+%%	bdb_version(-Version:integer) is det.
+%
+%	True when Version identifies the database version.  Version
+%	is an integer defined as:
+%
+%	  ==
+%	  DB_VERSION_MAJOR*10000 +
+%         DB_VERSION_MINOR*100   +
+%         DB_VERSION_PATCH
+%	  ==
+
 
 		 /*******************************
 		 *	       MESSAGES		*
