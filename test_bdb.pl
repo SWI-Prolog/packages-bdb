@@ -56,6 +56,7 @@ data(list,	     [aap, noot, mies]).
 data(compound,	     f(a)).
 data(vars_shared,    f(A,A)).
 data(vars_nshared,   f(_,_)).
+data(term_unicode,   'aa\u0410p'(1)).
 data(cycle,	     X) :- X = f(X).
 %data(dict,	     d{x:42, y:20}).	% BUG in PL_record_external()
 
