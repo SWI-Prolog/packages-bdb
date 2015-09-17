@@ -58,7 +58,7 @@ data(vars_shared,    f(A,A)).
 data(vars_nshared,   f(_,_)).
 data(term_unicode,   'aa\u0410p'(1)).
 data(cycle,	     X) :- X = f(X).
-%data(dict,	     d{x:42, y:20}).	% BUG in PL_record_external()
+data(dict,	     d{x:42, y:20}).
 
 delete_existing_file(File) :-
 	exists_file(File), !,
