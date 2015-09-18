@@ -175,6 +175,9 @@ following atom-typed codes are  defined: `lock_deadlock`, `runrecovery`,
 %	    bdb_transaction/1.
 %	  - thread(+Bool)
 %	    Make the environment accessible from multiple threads.
+%	  - thread_count(+Integer)
+%	    Declare an approximate number of threads in the database
+%	    environment.  See =|DB_ENV->set_thread_count()|=.
 %	  - use_environ(+Bool)
 %	  - use_environ_root(+Bool)
 %	  - config(+ListOfConfig)

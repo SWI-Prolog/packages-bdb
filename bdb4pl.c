@@ -72,6 +72,7 @@ static atom_t ATOM_type;
 static atom_t ATOM_unknown;
 static atom_t ATOM_update;
 static atom_t ATOM_value;
+static atom_t ATOM_thread_count;
 
 static functor_t FUNCTOR_error2;
 static functor_t FUNCTOR_bdb3;
@@ -143,6 +144,7 @@ initConstants(void)
   ATOM_unknown	      =	PL_new_atom("unknown");
   ATOM_update	      =	PL_new_atom("update");
   ATOM_value	      =	PL_new_atom("value");
+  ATOM_thread_count   = PL_new_atom("thread_count");
 
   FUNCTOR_error2      = PL_new_functor(PL_new_atom("error"), 2);
   FUNCTOR_bdb3        = PL_new_functor(PL_new_atom("bdb"),   3);
@@ -1602,6 +1604,12 @@ bdb_init(term_t newenv, term_t option_list)
 	  return FALSE;
 	env->env->set_cachesize(env->env, 0, v, 0);
 	flags |= DB_INIT_MPOOL;
+      } else if ( name == ATOM_thread_count )
+      { size_t v;
+
+	if ( !PL_get_size_ex(a, &v) )
+	  return FALSE;
+	env->env->set_thread_count(env->env, v);
       } else if ( name == ATOM_home )	/* db_home */
       {	if ( !PL_get_file_name(a, &home,
 			       PL_FILE_OSPATH|PL_FILE_EXIST|PL_FILE_ABSOLUTE) )
