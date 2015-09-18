@@ -489,7 +489,8 @@ db_status(int rval, term_t obj)
 			 PL_FUNCTOR, FUNCTOR_bdb3,
 			   PL_TERM, id,
 			   PL_CHARS, db_strerror(rval),
-			   PL_TERM, obj) )
+			   PL_TERM, obj,
+		         PL_VARIABLE) )
       return PL_raise_exception(ex);
 
     return FALSE;
