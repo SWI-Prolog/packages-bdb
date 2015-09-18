@@ -258,11 +258,44 @@ env_property(thread(_)).
 %
 %	Open File holding a database. Mode   is one of `read`, providing
 %	read-only  access  or  `update`,  providing  read/write  access.
-%	Options is a list of options. Supported options are:
+%	Options is a list of options.   Supported options are below. The
+%	boolean options are  passed  as   flags  to  =|DB->open()|=. The
+%	option name is derived  from  the   flag  name  by stripping the
+%	=|DB_|=  prefix  and  converting  to  lower  case.  Consult  the
+%	Berkeley DB documentation for details.
 %
-%	  - duplicates(+Boolean)
+%	  - auto_commit(+Boolean)
+%	    Open the database in a transaction.  Ensures no database
+%	    is created in case of failure.
+%	  - create(+Boolean)
+%	    Create a new database of the database does not exist.
+%	  - dup(+Boolean)
 %	    Do/do not allow for duplicate values on the same key.
 %	    Default is not to allow for duplicates.
+%	  - excl(+Boolean)
+%	    Combined with create(true), fail if the database already
+%	    exists.
+%	  - multiversion(+Boolean)
+%	    Open the database with support for multiversion concurrency
+%	    control.  The flag is passed, but no further support is
+%	    provided yet.
+%	  - nommap(+Boolean)
+%	    Do not map this database into process memory.
+%	  - rdonly(+Boolean)
+%	    Open the database for reading only.
+%	  - read_uncommitted(+Boolean)
+%	    Read operations on the database may request the return of
+%	    modified but not yet committed data. This flag must be
+%	    specified on all DB handles used to perform dirty reads or
+%	    database updates, otherwise requests for dirty reads may not
+%	    be honored and the read may block.
+%	  - thread(+Boolean)
+%	    Enable access to the database handle from multiple threads.
+%	    This is default if the corresponding flag is specified for
+%	    the environment.
+%	  - truncate(+Boolean)
+%	    When specified, truncate the underlying file, i.e., start
+%	    with an empty database.
 %	  - database(+Name)
 %	    If File contains multiple databases, address the named
 %	    database in the file. A DB file can only consist of multiple

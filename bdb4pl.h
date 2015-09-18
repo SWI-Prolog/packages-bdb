@@ -67,7 +67,7 @@ typedef struct
 
   atom_t	symbol;			/* <bdb>(...)  */
   int		magic;			/* DBH_MAGIC */
-  int		duplicates;		/* Duplicates allowed? */
+  u_int32_t	flags;			/* flags used to open the database */
   dtype		key_type;		/* type of the key */
   dtype		value_type;		/* type of the data */
   dbenvh       *env;			/* associated environment */

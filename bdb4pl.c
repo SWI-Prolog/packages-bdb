@@ -54,7 +54,6 @@ static atom_t ATOM_client_timeout;
 static atom_t ATOM_config;
 static atom_t ATOM_database;
 static atom_t ATOM_default;
-static atom_t ATOM_duplicates;
 static atom_t ATOM_environment;
 static atom_t ATOM_false;
 static atom_t ATOM_hash;
@@ -76,6 +75,18 @@ static atom_t ATOM_value;
 
 static functor_t FUNCTOR_error2;
 static functor_t FUNCTOR_bdb3;
+
+#define F_ERROR       ((u_int32_t)-1)
+#define F_UNPROCESSED ((u_int32_t)-2)
+
+typedef struct db_flag
+{ char	   *name;
+  u_int32_t flag;			/* flag for name */
+  u_int32_t flags;			/* implied flags */
+  atom_t    aname;
+} db_flag;
+
+static u_int32_t lookup_flag(db_flag *flags, atom_t name, term_t arg);
 
 static dbenvh   default_env = {0};	/* default environment */
 
@@ -100,6 +111,7 @@ I leave it here for future reference.
 	}
 #endif
 
+static DB_TXN *current_transaction(void);
 #define TheTXN current_transaction()
 
 static void
@@ -113,7 +125,6 @@ initConstants(void)
   ATOM_config	      =	PL_new_atom("config");
   ATOM_database	      =	PL_new_atom("database");
   ATOM_default	      = PL_new_atom("default");
-  ATOM_duplicates     =	PL_new_atom("duplicates");
   ATOM_environment    = PL_new_atom("environment");
   ATOM_false	      =	PL_new_atom("false");
   ATOM_hash	      =	PL_new_atom("hash");
@@ -587,6 +598,22 @@ get_dtype(term_t t, dtype *type)
 }
 
 
+static db_flag db_flags[] =
+{ { "auto_commit",	DB_AUTO_COMMIT,	     0 },
+  { "create",		DB_CREATE,	     0 },
+  { "excl",		DB_EXCL,	     0 },
+  { "multiversion",	DB_MULTIVERSION,     0 },
+  { "nommap",		DB_NOMMAP,	     0 },
+  { "rdonly",		DB_RDONLY,	     0 },
+  { "read_uncommitted",	DB_READ_UNCOMMITTED, 0 },
+  { "thread",		DB_THREAD,	     0 },
+  { "truncate",		DB_TRUNCATE,	     0 },
+  { "dup",		DB_DUP,		     0 },
+  { "duplicates",	DB_DUP,		     0 }, /* compatibility */
+  { NULL,		0,		     0 },
+};
+
+
 static int
 db_options(term_t t, dbh *dbh, char **subdb)
 { term_t tail = PL_copy_term_ref(t);
@@ -605,17 +632,7 @@ db_options(term_t t, dbh *dbh, char **subdb)
       { term_t a0 = PL_new_term_ref();
 
 	_PL_get_arg(1, head, a0);
-	if ( name == ATOM_duplicates )
-	{ int v;
-
-	  if ( !PL_get_bool_ex(a0, &v) )
-	    return FALSE;
-
-	  if ( v )
-	  { flags |= DB_DUP;
-	    dbh->duplicates = TRUE;
-	  }
-	} else if ( name == ATOM_database )
+	if ( name == ATOM_database )
 	{ if ( !PL_get_chars(a0, subdb,
 			     CVT_ATOM|CVT_STRING|CVT_EXCEPTION|REP_UTF8) )
 	    return FALSE;
@@ -626,11 +643,21 @@ db_options(term_t t, dbh *dbh, char **subdb)
 	{ if ( !get_dtype(a0, &dbh->value_type) )
 	    return FALSE;
 	} else if ( name == ATOM_type || name == ATOM_environment )
-	    ;  /* skip [ ... type(_) ... ]  because it's handled by db_type */
-	else
-	    return PL_domain_error("db_option", head);
+	{  ;  /* type(_) and environment() are handled by db_preoptions */
+	} else
+	{ u_int32_t fv = lookup_flag(db_flags, name, a0);
+
+	  switch(fv)
+	  { case F_ERROR:
+	      return FALSE;
+	    case F_UNPROCESSED:
+	      return PL_domain_error("db_option", head);
+	    default:
+	      flags |= fv;
+	  }
+	}
       } else
-	  return PL_domain_error("db_option", head);
+	return PL_type_error("db_option", head);
     }
   }
 
@@ -642,6 +669,7 @@ db_options(term_t t, dbh *dbh, char **subdb)
 
     if ( (rval=dbh->db->set_flags(dbh->db, flags)) )
       return db_status_db(rval, dbh);
+    dbh->flags = flags;
   }
 
 
@@ -718,7 +746,7 @@ pl_bdb_open(term_t file, term_t mode, term_t handle, term_t options)
 #ifdef DB41
   if ( (env->flags&DB_INIT_TXN) )
     flags |= DB_AUTO_COMMIT;
-  NOSIG(rval=dbh->db->open(dbh->db, NULL, fname, subdb, type, flags, m));
+  NOSIG(rval=dbh->db->open(dbh->db, TheTXN, fname, subdb, type, flags, m));
 #else
   NOSIG(rval=dbh->db->open(dbh->db, fname, subdb, type, flags, m));
 #endif
@@ -1009,7 +1037,7 @@ pl_bdb_getall(term_t handle, term_t key, term_t value)
     return FALSE;
   memset(&v, 0, sizeof(v));
 
-  if ( db->duplicates )			/* must use a cursor */
+  if ( (db->flags&DB_DUP) )			/* must use a cursor */
   { DBC *cursor;
     term_t tail = PL_copy_term_ref(value);
     term_t head = PL_new_term_ref();
@@ -1203,7 +1231,7 @@ pl_bdb_getdel(term_t handle, term_t key, term_t value, control_t ctx, int del)
       if ( !get_db(handle, &db) )
 	return FALSE;
 
-      if ( db->duplicates )		/* DB with duplicates */
+      if ( (db->flags&DB_DUP) )		/* DB with duplicates */
       { c = calloc(1, sizeof(*c));
 
 	c->db = db;
@@ -1442,14 +1470,8 @@ get_server(term_t options, server_info *info)
 
 
 #define MAXCONFIG 20
-typedef struct db_flag
-{ char	   *name;
-  u_int32_t flag;			/* flag for name */
-  u_int32_t flags;			/* implied flags */
-  atom_t    aname;
-} db_flag;
 
-static db_flag db_dlags[] =
+static db_flag dbenv_flags[] =
 { { "init_lock",	DB_INIT_LOCK,	     0 },
   { "init_log",		DB_INIT_LOG,	     0 },
   { "init_mpool",	DB_INIT_MPOOL,	     0 },
@@ -1473,10 +1495,8 @@ static db_flag db_dlags[] =
 #define F_UNPROCESSED ((u_int32_t)-2)
 
 static u_int32_t
-lookup_flag(atom_t name, term_t arg)
-{ db_flag *fp;
-
-  for(fp=db_dlags; fp->name; fp++)
+lookup_flag(db_flag *fp, atom_t name, term_t arg)
+{ for(; fp->name; fp++)
   { if ( !fp->aname )
       fp->aname = PL_new_atom(fp->name);
 
@@ -1616,7 +1636,7 @@ bdb_init(term_t newenv, term_t option_list)
 	if ( !PL_get_nil_ex(a) )
 	  goto pl_error;
       } else
-      { u_int32_t fv = lookup_flag(name, a);
+      { u_int32_t fv = lookup_flag(dbenv_flags, name, a);
 
 	switch(fv)
 	{ case F_ERROR:
@@ -1716,7 +1736,7 @@ pl_bdb_env_property(term_t t, term_t prop)
       _PL_get_arg(1, prop, a);
       if ( name == ATOM_home && env->home )
 	return PL_unify_atom_chars(a, env->home);
-      else if ( (flag=lookup_flag(name,0)) != F_UNPROCESSED )
+      else if ( (flag=lookup_flag(dbenv_flags,name,0)) != F_UNPROCESSED )
 	return PL_unify_bool(a, env->flags&flag);
     }
   }
