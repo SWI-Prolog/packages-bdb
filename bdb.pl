@@ -76,7 +76,7 @@ Prolog terms including cycles and constraints in the database.
 Accessing a database consists of four steps:
 
     1. Initialise the default DB environment using bdb_init/1 or
-       create an explicit DB environment using dbb_init/2. This
+       create an explicit DB environment using bdb_init/2. This
        step is optional, providing simple non-transactional file access
        when omitted.
     2. Open a database using bdb_open/4, returning a handle to the
