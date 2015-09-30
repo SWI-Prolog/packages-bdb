@@ -1555,12 +1555,12 @@ bdb_init(term_t newenv, term_t option_list)
     { if ( (rval=db_env_create(&env->env, DB_RPCCLIENT)) )
 	goto db_error;
 #ifdef HAVE_SET_RPC_SERVER		/* >= 4.0; <= 5.0 */
-      rval = db_env->set_rpc_server(env->env, 0, si.host,
-				    si.cl_timeout, si.sv_timeout, si.flags);
+      rval = env->env->set_rpc_server(env->env, 0, si.host,
+				      si.cl_timeout, si.sv_timeout, si.flags);
 #else
 #ifdef HAVE_SET_SERVER
-      rval = db_env->set_server(env->env, si.host,
-			        si.cl_timeout, si.sv_timeout, si.flags);
+      rval = env->env->set_server(env->env, si.host,
+				  si.cl_timeout, si.sv_timeout, si.flags);
 #endif
 #endif
       if ( rval )
