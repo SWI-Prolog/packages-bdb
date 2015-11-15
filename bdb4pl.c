@@ -539,7 +539,7 @@ db_preoptions(term_t t, dbenvh **db_env, int *type)
 
   while( PL_get_list(tail, head, tail) )
   { atom_t name;
-    int arity;
+    size_t arity;
 
     if ( PL_get_name_arity(head, &name, &arity) )
     { if ( name == ATOM_type )
@@ -626,7 +626,7 @@ db_options(term_t t, dbh *dbh, char **subdb)
 
   while( PL_get_list(tail, head, tail) )
   { atom_t name;
-    int arity;
+    size_t arity;
 
     if ( PL_get_name_arity(head, &name, &arity) )
     { if ( arity == 1 )
@@ -1414,7 +1414,7 @@ get_server(term_t options, server_info *info)
 
   while( PL_get_list(l, h, l) )
   { atom_t name;
-    int arity;
+    size_t arity;
 
     if ( PL_get_name_arity(h, &name, &arity) && name == ATOM_server )
     { info->cl_timeout = 0;
@@ -1435,7 +1435,7 @@ get_server(term_t options, server_info *info)
 	_PL_get_arg(2, h, l);
 	while( PL_get_list(l, h, l) )
 	{ atom_t name;
-	  int arity;
+	  size_t arity;
 
 	  if ( PL_get_name_arity(h, &name, &arity) && arity == 1 )
 	  { _PL_get_arg(1, h, a);
@@ -1579,7 +1579,7 @@ bdb_init(term_t newenv, term_t option_list)
 
   while(PL_get_list(options, head, options))
   { atom_t name;
-    int arity;
+    size_t arity;
 
     if ( !PL_get_name_arity(head, &name, &arity) )
     { PL_type_error("option", head);
@@ -1619,7 +1619,7 @@ bdb_init(term_t newenv, term_t option_list)
 
 	while(PL_get_list(a, h, a))
 	{ atom_t nm;
-	  int ar;
+	  size_t ar;
 	  const char *n;
 	  char *v;
 
@@ -1734,7 +1734,7 @@ pl_bdb_env_property(term_t t, term_t prop)
 
   if ( get_dbenv(t, &env ) )
   { atom_t name;
-    int arity;
+    size_t arity;
 
     if ( PL_get_name_arity(prop, &name, &arity) && arity == 1 )
     { term_t a = PL_new_term_ref();
