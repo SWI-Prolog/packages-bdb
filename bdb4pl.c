@@ -770,6 +770,7 @@ pl_bdb_close(term_t handle)
 
     DEBUG(Sdprintf("Close DB at %p\n", db->db));
     NOSIG(rval = db->db->close(db->db, 0);
+	  db->db = NULL;
 	  db->symbol = 0);
 
     return db_status(rval, handle);
