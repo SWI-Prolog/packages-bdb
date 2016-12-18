@@ -33,8 +33,8 @@
 */
 
 :- module(test_bdb,
-	  [ test_bdb/0
-	  ]).
+          [ test_bdb/0
+          ]).
 
 :- asserta(user:file_search_path(foreign, '.')).
 :- asserta(user:file_search_path(library, '.')).
@@ -46,60 +46,61 @@
 :- use_module(library(lists)).
 
 test_bdb :-
-	run_tests([ bdb
-		  ]).
+    run_tests([ bdb
+              ]).
 
-data(var,	     _).
-data(int,	     42).
-data(bigint,	     343786473836435678).
-data(atom,	     'aap').
+data(var,            _).
+data(int,            42).
+data(bigint,         343786473836435678).
+data(atom,           'aap').
 data(atom_unicode,   'aa\u0410p').
-data(atom_nul,	     'aa\u0000p').
+data(atom_nul,       'aa\u0000p').
 data(string_unicode, "aa\u0410p").
 data(string_nul,     "aa\u0000p").
-data(list,	     [aap, noot, mies]).
-data(compound,	     f(a)).
+data(list,           [aap, noot, mies]).
+data(compound,       f(a)).
 data(vars_shared,    f(A,A)).
 data(vars_nshared,   f(_,_)).
 data(term_unicode,   'aa\u0410p'(1)).
-data(cycle,	     X) :- X = f(X).
-data(dict,	     d{x:42, y:20}).
+data(cycle,          X) :- X = f(X).
+data(dict,           d{x:42, y:20}).
 
 delete_existing_file(File) :-
-	exists_file(File), !,
-	delete_file(File).
+    exists_file(File),
+    !,
+    delete_file(File).
 delete_existing_file(_).
 
 :- begin_tests(bdb).
 
 test(loop, PairsOut =@= PairsIn) :-
-	DBFile = 'test.db',
-	delete_existing_file(DBFile),
-	setof(Type-Data, data(Type, Data), PairsIn),
-	bdb_open(DBFile, update, DB, []),
-	forall(member(Type-Data, PairsIn),
-	       bdb_put(DB, Type, Data)),
-	setof(Type-Data, bdb_enum(DB, Type, Data), PairsOut),
-	bdb_close(DB),
-	delete_existing_file(DBFile).
+    DBFile = 'test.db',
+    delete_existing_file(DBFile),
+    setof(Type-Data, data(Type, Data), PairsIn),
+    bdb_open(DBFile, update, DB, []),
+    forall(member(Type-Data, PairsIn),
+           bdb_put(DB, Type, Data)),
+    setof(Type-Data, bdb_enum(DB, Type, Data), PairsOut),
+    bdb_close(DB),
+    delete_existing_file(DBFile).
 test(no_duplicates, Mies == mies) :-
-	DBFile = 'test.db',
-	delete_existing_file(DBFile),
-	bdb_open(DBFile, update, DB, [duplicates(false)]),
-	bdb_put(DB, aap, noot),
-	bdb_put(DB, aap, mies),
-	bdb_get(DB, aap, Mies),
-	bdb_close(DB),
-	delete_existing_file(DBFile).
+    DBFile = 'test.db',
+    delete_existing_file(DBFile),
+    bdb_open(DBFile, update, DB, [duplicates(false)]),
+    bdb_put(DB, aap, noot),
+    bdb_put(DB, aap, mies),
+    bdb_get(DB, aap, Mies),
+    bdb_close(DB),
+    delete_existing_file(DBFile).
 test(duplicates, Out == [1,2,3,4,5,6,7,8,9,10]) :-
-	DBFile = 'test.db',
-	delete_existing_file(DBFile),
-	bdb_open(DBFile, update, DB, [duplicates(true)]),
-	forall(between(1, 10, X),
-	       forall(between(1, 10, Y),
-		      bdb_put(DB, X, Y))),
-	bdb_getall(DB, 5, Out),
-	bdb_close(DB),
-	delete_existing_file(DBFile).
+    DBFile = 'test.db',
+    delete_existing_file(DBFile),
+    bdb_open(DBFile, update, DB, [duplicates(true)]),
+    forall(between(1, 10, X),
+           forall(between(1, 10, Y),
+                  bdb_put(DB, X, Y))),
+    bdb_getall(DB, 5, Out),
+    bdb_close(DB),
+    delete_existing_file(DBFile).
 
 :- end_tests(bdb).
