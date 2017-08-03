@@ -1497,7 +1497,9 @@ static db_flag dbenv_flags[] =
   { "use_environ_root",	DB_USE_ENVIRON_ROOT, 0 },
   { "create",		DB_CREATE,	     0 },
   { "lockdown",		DB_LOCKDOWN,	     0 },
+#ifdef DB_FAILCHK
   { "failchk",		DB_FAILCHK,	     0 },
+#endif
   { "private",		DB_PRIVATE,	     0 },
   { "register",		DB_REGISTER,	     0 },
   { "system_mem",	DB_SYSTEM_MEM,	     0 },
