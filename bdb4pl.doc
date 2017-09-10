@@ -19,10 +19,10 @@
 
 \begin{abstract}
 This package realised external storage of Prolog terms based on the {\em
-Berkeley DB} library from \url[Sleepycat
-Software]{http://www.sleepycat.com}. The DB library implements modular
-support for the bottom layers of a database. The database itself maps
-unconstrained keys onto values.
+Berkeley DB} library from \href{http://www.sleepycat.com}{Sleepycat
+Software}. The DB library implements modular support for the bottom
+layers of a database. The database itself maps unconstrained keys onto
+values.
 
 The SWI-Prolog interface for DB allows for fast storage of arbitrary
 Prolog terms in the database.
