@@ -18,6 +18,9 @@ swipl_plugin(
     C_SOURCES bdb4pl.c
     C_LIBS ${BDB_LIBRARY}
     PL_LIBS bdb.pl)
+target_include_directories(
+    plugin_bdb4pl BEFORE PRIVATE
+    ${BDB_INCLUDE_DIR})
 
 test_libs(bdb)
 
