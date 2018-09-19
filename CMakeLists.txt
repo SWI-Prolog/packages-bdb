@@ -22,6 +22,8 @@ target_include_directories(
     plugin_bdb4pl BEFORE PRIVATE
     ${BDB_INCLUDE_DIR})
 
+install_dll(${BDB_LIBRARY})
+
 test_libs(bdb)
 
 endif(BDB_FOUND)
