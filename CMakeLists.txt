@@ -16,7 +16,7 @@ configure_file(config.h.cmake config.h)
 swipl_plugin(
     bdb4pl
     C_SOURCES bdb4pl.c
-    C_LIBS ${BDB_LIBRARY}
+    THREADED C_LIBS ${BDB_LIBRARY}
     PL_LIBS bdb.pl)
 target_include_directories(
     plugin_bdb4pl BEFORE PRIVATE
