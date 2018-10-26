@@ -16,10 +16,15 @@ if(BDB_INCLUDE_DIR AND BDB_LIBRARY)
 endif()
 
 # Look for the header file.
+# The /usr/local/include/dbXX are locations used by Macports
 find_path(
   BDB_INCLUDE_DIR
   NAMES db.h
   HINTS /usr/local/opt/db/include
+        /opt/local/include/db62
+        /opt/local/include/db60
+        /opt/local/include/db53
+        /opt/local/include/db48
   DOC "Include directory for the Berkeley DB library"
 )
 mark_as_advanced(BDB_INCLUDE_DIR)
@@ -29,6 +34,10 @@ find_library(
   BDB_LIBRARY
   NAMES db
   HINTS /usr/local/opt/db4/lib
+        /opt/local/lib/db62
+        /opt/local/lib/db60
+        /opt/local/lib/db53
+        /opt/local/lib/db48
   DOC "Libraries to link against for the Berkeley DB"
 )
 mark_as_advanced(BDB_LIBRARY)
