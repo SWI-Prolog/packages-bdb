@@ -35,15 +35,13 @@
 :- module(test_bdb,
           [ test_bdb/0
           ]).
+:- autoload(library(bdb),
+	    [ bdb_open/4, bdb_put/3, bdb_enum/3, bdb_close/1,
+	      bdb_get/3, bdb_getall/3
+	    ]).
+:- autoload(library(lists),[member/2]).
+:- autoload(library(plunit),[run_tests/1,begin_tests/1,end_tests/1]).
 
-:- asserta(user:file_search_path(foreign, '.')).
-:- asserta(user:file_search_path(library, '.')).
-:- asserta(user:file_search_path(library, '../plunit')).
-
-:- use_module(library(bdb)).
-:- use_module(library(plunit)).
-:- use_module(library(debug)).
-:- use_module(library(lists)).
 
 test_bdb :-
     run_tests([ bdb
