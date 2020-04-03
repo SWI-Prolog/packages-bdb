@@ -72,34 +72,49 @@ delete_existing_file(_).
 
 :- begin_tests(bdb).
 
-test(loop, PairsOut =@= PairsIn) :-
-    DBFile = 'test.db',
+:- multifile user:file_search_path/1.
+user:file_search_path(test_tmp_dir, '.').
+
+tmp_output(Base, File) :-
+    absolute_file_name(test_tmp_dir(Base),
+                       File,
+                       [ access(write)
+                       ]).
+
+test(loop,
+     [ setup(tmp_output('test.db', DBFile)),
+       cleanup(delete_existing_file(DBFile)),
+       PairsOut =@= PairsIn
+     ]) :-
     delete_existing_file(DBFile),
     setof(Type-Data, data(Type, Data), PairsIn),
     bdb_open(DBFile, update, DB, []),
     forall(member(Type-Data, PairsIn),
            bdb_put(DB, Type, Data)),
     setof(Type-Data, bdb_enum(DB, Type, Data), PairsOut),
-    bdb_close(DB),
-    delete_existing_file(DBFile).
-test(no_duplicates, Mies == mies) :-
-    DBFile = 'test.db',
+    bdb_close(DB).
+test(no_duplicates,
+     [ setup(tmp_output('test.db', DBFile)),
+       cleanup(delete_existing_file(DBFile)),
+       Mies == mies
+     ]) :-
     delete_existing_file(DBFile),
     bdb_open(DBFile, update, DB, [duplicates(false)]),
     bdb_put(DB, aap, noot),
     bdb_put(DB, aap, mies),
     bdb_get(DB, aap, Mies),
-    bdb_close(DB),
-    delete_existing_file(DBFile).
-test(duplicates, Out == [1,2,3,4,5,6,7,8,9,10]) :-
-    DBFile = 'test.db',
+    bdb_close(DB).
+test(duplicates,
+     [ setup(tmp_output('test.db', DBFile)),
+       cleanup(delete_existing_file(DBFile)),
+       Out == [1,2,3,4,5,6,7,8,9,10]
+     ]) :-
     delete_existing_file(DBFile),
     bdb_open(DBFile, update, DB, [duplicates(true)]),
     forall(between(1, 10, X),
            forall(between(1, 10, Y),
                   bdb_put(DB, X, Y))),
     bdb_getall(DB, 5, Out),
-    bdb_close(DB),
-    delete_existing_file(DBFile).
+    bdb_close(DB).
 
 :- end_tests(bdb).
