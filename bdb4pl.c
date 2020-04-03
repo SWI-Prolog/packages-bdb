@@ -3,8 +3,9 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2015, University of Amsterdam
-                         VU University Amsterdam
+    Copyright (c)  2015-2020, University of Amsterdam
+                              VU University Amsterdam
+			      CWI, Amsterdam
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
@@ -159,7 +160,7 @@ initConstants(void)
 }
 
 static int bdb_close_env(dbenvh *env, int silent);
-
+static int bdb_close(dbh *db);
 
 		 /*******************************
 		 *     DB_ENV SYMBOL WRAPPER	*
@@ -744,12 +745,15 @@ pl_bdb_open(term_t file, term_t mode, term_t handle, term_t options)
   dbh->env   = env;
   NOSIG(rval=db_create(&dbh->db, env->env, 0));
   if ( rval )
+  { dbh->db = NULL;
+    dbh->symbol = 0;
     return db_status(rval, file);
+  }
 
   DEBUG(Sdprintf("New DB at %p\n", dbh->db));
 
   if ( !db_options(options, dbh, &subdb) )
-  { dbh->db->close(dbh->db, 0);
+  { bdb_close(dbh);
     return FALSE;
   }
 
@@ -762,11 +766,24 @@ pl_bdb_open(term_t file, term_t mode, term_t handle, term_t options)
 #endif
 
   if ( rval )
-  { dbh->db->close(dbh->db, 0);
+  { bdb_close(dbh);
     return db_status_db(rval, dbh);
   }
 
   return unify_db(handle, dbh);
+}
+
+
+static int
+bdb_close(dbh *db)
+{ int rval;
+
+  DEBUG(Sdprintf("Close DB at %p\n", db->db));
+  NOSIG(rval = db->db->close(db->db, 0);
+	db->db = NULL;
+	db->symbol = 0);
+
+  return rval;
 }
 
 
@@ -775,14 +792,9 @@ pl_bdb_close(term_t handle)
 { dbh *db;
 
   if ( get_db(handle, &db) )
-  { int rval;
-
-    DEBUG(Sdprintf("Close DB at %p\n", db->db));
-    NOSIG(rval = db->db->close(db->db, 0);
-	  db->db = NULL;
-	  db->symbol = 0);
-
-    return db_status(rval, handle);
+  { if ( !db->db || !db->symbol )
+      return PL_existence_error("db", handle);
+    return db_status(bdb_close(db), handle);
   }
 
   return FALSE;
@@ -796,7 +808,7 @@ pl_bdb_is_open(term_t t)
   if ( PL_get_blob(t, &data, NULL, &type) && type == &db_blob)
   { dbh *p = data;
 
-    if ( p->symbol )
+    if ( p->db && p->symbol )
       return TRUE;
 
     return FALSE;
