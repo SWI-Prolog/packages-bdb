@@ -5,4 +5,3 @@
 #cmakedefine HAVE_DB_H
 #cmakedefine HAVE_SET_RPC_SERVER
 #cmakedefine HAVE_SET_SERVER
-#cmakedefine PL_ARITY_AS_SIZE
