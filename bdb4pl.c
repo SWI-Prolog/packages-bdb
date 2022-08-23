@@ -1786,7 +1786,7 @@ pl_bdb_version(term_t v)
 
 
 install_t
-install(void)
+install_bdb4pl(void)
 { initConstants();
   PL_license("agpl", "BerkeleyDB (libdb, used by library(bdb))");
 
