@@ -24,6 +24,9 @@ target_include_directories(
 
 install_dll(${BDB_LIBRARY})
 
+pkg_doc(bdb4pl
+	SOURCE bdb.pl)
+
 test_libs(bdb)
 
 endif(BDB_FOUND)
