@@ -3,9 +3,10 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2015-2020, University of Amsterdam
+    Copyright (c)  2015-2025, University of Amsterdam
                               VU University Amsterdam
 			      CWI, Amsterdam
+			      SWI-Prolog Solutions b.v.
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
@@ -44,6 +45,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <string.h>
 #include <assert.h>
 #include <signal.h>
@@ -313,7 +315,7 @@ static PL_blob_t db_blob =
 };
 
 
-static int
+static bool
 get_db(term_t t, dbh **db)
 { PL_blob_t *type;
   void *data;
@@ -324,18 +326,17 @@ get_db(term_t t, dbh **db)
     if ( p->symbol )
     { *db = p;
 
-      return TRUE;
+      return true;
     }
 
-    PL_permission_error("access", "closed_bdb", t);
-    return FALSE;
+    return PL_permission_error("access", "closed_bdb", t),false;
   }
 
-  return PL_type_error("db", t);
+  return PL_type_error("db", t),false;
 }
 
 
-static int
+static bool
 unify_db(term_t t, dbh *db)
 { return PL_unify_blob(t, db, sizeof(*db), &db_blob);
 }
