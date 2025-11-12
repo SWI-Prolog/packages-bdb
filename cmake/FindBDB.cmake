@@ -20,7 +20,7 @@ endif()
 find_path(
   BDB_INCLUDE_DIR
   NAMES db.h
-  HINTS /usr/local/opt/db/include
+  HINTS ${LIBBDB_ROOT_DIR}/include
         /opt/local/include/db62
         /opt/local/include/db60
         /opt/local/include/db53
@@ -33,7 +33,7 @@ mark_as_advanced(BDB_INCLUDE_DIR)
 find_library(
   BDB_LIBRARY
   NAMES db
-  HINTS /usr/local/opt/db4/lib
+  HINTS ${LIBBDB_ROOT_DIR}/lib
         /opt/local/lib/db62
         /opt/local/lib/db60
         /opt/local/lib/db53
