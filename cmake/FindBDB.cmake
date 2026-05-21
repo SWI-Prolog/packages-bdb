@@ -25,6 +25,7 @@ find_path(
         /opt/local/include/db60
         /opt/local/include/db53
         /opt/local/include/db48
+        /usr/local/include/db4
   DOC "Include directory for the Berkeley DB library"
 )
 mark_as_advanced(BDB_INCLUDE_DIR)
@@ -38,6 +39,7 @@ find_library(
         /opt/local/lib/db60
         /opt/local/lib/db53
         /opt/local/lib/db48
+        /usr/local/lib/db4
   DOC "Libraries to link against for the Berkeley DB"
 )
 mark_as_advanced(BDB_LIBRARY)
