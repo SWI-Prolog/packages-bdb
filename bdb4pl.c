@@ -69,12 +69,10 @@ static atom_t ATOM_btree;
 static atom_t ATOM_c_blob;
 static atom_t ATOM_c_long;
 static atom_t ATOM_c_string;
-static atom_t ATOM_client_timeout;
 static atom_t ATOM_config;
 static atom_t ATOM_database;
 static atom_t ATOM_default;
 static atom_t ATOM_environment;
-static atom_t ATOM_false;
 static atom_t ATOM_hash;
 static atom_t ATOM_home;
 static atom_t ATOM_key;
@@ -82,12 +80,13 @@ static atom_t ATOM_mp_mmapsize;
 static atom_t ATOM_mp_size;
 static atom_t ATOM_read;
 static atom_t ATOM_recno;
+static atom_t ATOM_term;
+static atom_t ATOM_type;
+#if defined(HAVE_SET_RPC_SERVER) || defined(HAVE_SET_SERVER)
+static atom_t ATOM_client_timeout;
 static atom_t ATOM_server;
 static atom_t ATOM_server_timeout;
-static atom_t ATOM_term;
-static atom_t ATOM_true;
-static atom_t ATOM_type;
-static atom_t ATOM_type;
+#endif
 static atom_t ATOM_unknown;
 static atom_t ATOM_update;
 static atom_t ATOM_value;
@@ -141,12 +140,10 @@ initConstants(void)
   ATOM_c_blob	      =	PL_new_atom("c_blob");
   ATOM_c_long	      =	PL_new_atom("c_long");
   ATOM_c_string	      =	PL_new_atom("c_string");
-  ATOM_client_timeout =	PL_new_atom("client_timeout");
   ATOM_config	      =	PL_new_atom("config");
   ATOM_database	      =	PL_new_atom("database");
   ATOM_default	      = PL_new_atom("default");
   ATOM_environment    = PL_new_atom("environment");
-  ATOM_false	      =	PL_new_atom("false");
   ATOM_hash	      =	PL_new_atom("hash");
   ATOM_home	      =	PL_new_atom("home");
   ATOM_key	      =	PL_new_atom("key");
@@ -154,12 +151,13 @@ initConstants(void)
   ATOM_mp_size	      =	PL_new_atom("mp_size");
   ATOM_read	      =	PL_new_atom("read");
   ATOM_recno	      =	PL_new_atom("recno");
+  ATOM_term	      =	PL_new_atom("term");
+  ATOM_type	      =	PL_new_atom("type");
+#if defined(HAVE_SET_RPC_SERVER) || defined(HAVE_SET_SERVER)
+  ATOM_client_timeout =	PL_new_atom("client_timeout");
   ATOM_server	      =	PL_new_atom("server");
   ATOM_server_timeout =	PL_new_atom("server_timeout");
-  ATOM_term	      =	PL_new_atom("term");
-  ATOM_true	      =	PL_new_atom("true");
-  ATOM_type	      =	PL_new_atom("type");
-  ATOM_type	      = PL_new_atom("type");
+#endif
   ATOM_unknown	      =	PL_new_atom("unknown");
   ATOM_update	      =	PL_new_atom("update");
   ATOM_value	      =	PL_new_atom("value");
