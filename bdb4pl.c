@@ -1798,7 +1798,11 @@ pl_bdb_version(term_t v)
 install_t
 install_bdb4pl(void)
 { initConstants();
+#if DB_VERSION_MAJOR >= 6		/* 6.0 and later are AGPL */
   PL_license("agpl", "BerkeleyDB (libdb, used by library(bdb))");
+#else
+  PL_license("sleepycat", "BerkeleyDB (libdb, used by library(bdb))");
+#endif
 
 #define NDET PL_FA_NONDETERMINISTIC
 
