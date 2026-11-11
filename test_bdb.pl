@@ -116,5 +116,19 @@ test(duplicates,
                   bdb_put(DB, X, Y))),
     bdb_getall(DB, 5, Out),
     bdb_close(DB).
+test(invalid_term,
+     [ setup(tmp_output('test.db', DBFile)),
+       cleanup(delete_existing_file(DBFile)),
+       error(syntax_error(bdb_illegal_data))
+     ]) :-
+    delete_existing_file(DBFile),
+    atom_codes(Junk, [3,255,255,255,255,255,255,255,16,1,2,3]),
+    bdb_open(DBFile, update, DB, [value(atom)]),
+    bdb_put(DB, key, Junk),
+    bdb_close(DB),
+    setup_call_cleanup(
+        bdb_open(DBFile, read, DB2, [value(term)]),
+        bdb_get(DB2, key, _),
+        bdb_close(DB2)).
 
 :- end_tests(bdb).

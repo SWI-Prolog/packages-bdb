@@ -351,13 +351,22 @@ unify_db(term_t t, dbh *db)
 		 *	   DATA EXCHANGE	*
 		 *******************************/
 
+/* The database is an external source.  Do not trust its content.
+*/
+
+static int
+illegal_dbt(void)
+{ return PL_syntax_error("bdb_illegal_data", NULL);
+}
+
 static int
 unify_dbt(term_t t, dtype type, DBT *dbt)
 { switch( type )
   { case D_TERM:
     { term_t r = PL_new_term_ref();
 
-      PL_recorded_external(dbt->data, r);
+      if ( !PL_recorded_external_len(dbt->data, dbt->size, r) )
+	return illegal_dbt();
       return PL_unify(t, r);
     }
     case D_ATOM:
@@ -365,10 +374,20 @@ unify_dbt(term_t t, dtype type, DBT *dbt)
     case D_CBLOB:
       return PL_unify_chars(t, PL_STRING|REP_ISO_LATIN_1, dbt->size, dbt->data);
     case D_CSTRING:
-      return PL_unify_chars(t, PL_ATOM|REP_UTF8, (size_t)-1, dbt->data);
+    { const char *s = dbt->data;
+      const char *e = memchr(s, 0, dbt->size);
+
+      if ( !e )
+	return illegal_dbt();
+      return PL_unify_chars(t, PL_ATOM|REP_UTF8, e-s, s);
+    }
     case D_CLONG:
-    { long *v = dbt->data;
-      return PL_unify_integer(t, *v);
+    { long v;
+
+      if ( dbt->size != sizeof(v) )
+	return illegal_dbt();
+      memcpy(&v, dbt->data, sizeof(v));
+      return PL_unify_integer(t, v);
     }
   }
   assert(0);
@@ -1130,7 +1149,11 @@ pl_bdb_getall(term_t handle, term_t key, term_t value)
       term_t head = PL_new_term_ref();
 
       free_dbt(&k, db->key_type);
-      PL_recorded_external(v.data, t);
+      if ( !unify_dbt(t, db->value_type, &v) )
+      { free_result_dbt(&v);
+	return FALSE;
+      }
+      free_result_dbt(&v);
       if ( PL_unify_list(tail, head, tail) &&
 	   PL_unify(head, t) &&
 	   PL_unify_nil(tail) )
