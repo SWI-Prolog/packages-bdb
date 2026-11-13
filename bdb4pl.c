@@ -167,7 +167,7 @@ initConstants(void)
   FUNCTOR_bdb3        = PL_new_functor(PL_new_atom("bdb"),   3);
 }
 
-static int bdb_close_env(dbenvh *env, int silent);
+static bool bdb_close_env(dbenvh *env, int silent);
 static int bdb_close(dbh *db);
 
 		 /*******************************
@@ -229,7 +229,7 @@ static PL_blob_t dbenv_blob =
 };
 
 
-static int
+static bool
 get_dbenv(term_t t, dbenvh **db_env)
 { PL_blob_t *type;
   atom_t a;
@@ -256,7 +256,7 @@ get_dbenv(term_t t, dbenvh **db_env)
 }
 
 
-static int
+static bool
 unify_dbenv(term_t t, dbenvh *db_env)
 { if ( db_env == &default_env )
     return PL_unify_atom(t, ATOM_default);
@@ -354,12 +354,12 @@ unify_db(term_t t, dbh *db)
 /* The database is an external source.  Do not trust its content.
 */
 
-static int
+static bool
 illegal_dbt(void)
 { return PL_syntax_error("bdb_illegal_data", NULL);
 }
 
-static int
+static bool
 unify_dbt(term_t t, dtype type, DBT *dbt)
 { switch( type )
   { case D_TERM:
@@ -512,7 +512,7 @@ static const err_def errors[] =
 };
 
 
-static int
+static bool
 db_status(int rval, term_t obj)
 { if ( rval == 0 )
     return true;
@@ -550,7 +550,7 @@ db_status(int rval, term_t obj)
 }
 
 
-static int
+static bool
 db_status_db(int rval, dbh *dbh)
 { term_t db;
 
@@ -561,7 +561,7 @@ db_status_db(int rval, dbh *dbh)
   return false;
 }
 
-static int
+static bool
 db_status_env(int rval, dbenvh *db_env)
 { term_t env;
 
@@ -572,7 +572,7 @@ db_status_env(int rval, dbenvh *db_env)
   return false;
 }
 
-static int
+static bool
 db_preoptions(term_t t, dbenvh **db_env, int *type)
 { term_t tail = PL_copy_term_ref(t);
   term_t head = PL_new_term_ref();
@@ -616,7 +616,7 @@ db_preoptions(term_t t, dbenvh **db_env, int *type)
 }
 
 
-static int
+static bool
 get_dtype(term_t t, dtype *type)
 { atom_t a;
 
@@ -655,7 +655,7 @@ static db_flag db_flags[] =
 };
 
 
-static int
+static bool
 db_options(term_t t, dbh *dbh, char **subdb)
 { term_t tail = PL_copy_term_ref(t);
   term_t head = PL_new_term_ref();
@@ -724,7 +724,7 @@ accessed from multiple threads. Not sure whether or not an uninitialized
 default environment can be accessed from multiple threads.
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
-static int
+static bool
 check_same_thread(dbenvh *env)
 { if ( (env->flags&DB_THREAD) || env->thread == PL_thread_self() )
   { return true;
@@ -889,7 +889,7 @@ free_transaction_stack(void *ptr)
 }
 
 
-static int
+static bool
 begin_transaction(dbenvh *env, transaction *t)
 { if ( env->env && (env->flags&DB_INIT_TXN) )
   { int rval;
@@ -924,7 +924,7 @@ begin_transaction(dbenvh *env, transaction *t)
 }
 
 
-static int
+static bool
 commit_transaction(transaction *t)
 { transaction_stack *stack = my_tr_stack();
   int rval;
@@ -941,7 +941,7 @@ commit_transaction(transaction *t)
 }
 
 
-static int
+static bool
 abort_transaction(transaction *t)
 { transaction_stack *stack = my_tr_stack();
   int rval;
@@ -1064,7 +1064,7 @@ pl_bdb_del2(term_t handle, term_t key)
 }
 
 
-static int
+static bool
 equal_dbt(DBT *a, DBT *b)
 { if ( a->size == b->size )
   { if ( a->data == b->data )
@@ -1411,7 +1411,7 @@ pl_bdb_del3(term_t handle, term_t key, term_t value, control_t ctx)
 }
 
 
-static int
+static bool
 bdb_close_env(dbenvh *env, int silent)
 { int rc = true;
 
@@ -1463,7 +1463,7 @@ pl_bdb_error(const char *prefix, char *msg)
 
 #if defined(HAVE_SET_RPC_SERVER) || defined(HAVE_SET_SERVER)
 
-static int
+static bool
 get_server(term_t options, server_info *info)
 { term_t l = PL_copy_term_ref(options);
   term_t h = PL_new_term_ref();
