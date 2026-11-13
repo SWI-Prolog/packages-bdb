@@ -196,7 +196,7 @@ release_dbenv(atom_t symbol)
 
   PL_free(db_env);
 
-  return TRUE;
+  return true;
 }
 
 static int
@@ -215,7 +215,7 @@ write_dbenv(IOSTREAM *s, atom_t symbol, int flags)
 
   Sfprintf(s, "<bdb_env>(%p)", db_env);
 
-  return TRUE;
+  return true;
 }
 
 static PL_blob_t dbenv_blob =
@@ -241,18 +241,18 @@ get_dbenv(term_t t, dbenvh **db_env)
     if ( p->symbol )
     { *db_env = p;
 
-      return TRUE;
+      return true;
     }
 
     PL_permission_error("access", "closed_bdb_env", t);
-    return FALSE;
+    return false;
   } else if ( PL_get_atom(t, &a) && a == ATOM_default )
   { *db_env = &default_env;
-    return TRUE;
+    return true;
   }
 
   PL_type_error("bdb_env", t);
-  return FALSE;
+  return false;
 }
 
 
@@ -288,7 +288,7 @@ release_db(atom_t symbol)
 
   PL_free(db);
 
-  return TRUE;
+  return true;
 }
 
 static int
@@ -307,7 +307,7 @@ write_db(IOSTREAM *s, atom_t symbol, int flags)
 
   Sfprintf(s, "<bdb>(%p)", db);
 
-  return TRUE;
+  return true;
 }
 
 static PL_blob_t db_blob =
@@ -391,7 +391,7 @@ unify_dbt(term_t t, dtype type, DBT *dbt)
     }
   }
   assert(0);
-  return FALSE;
+  return false;
 }
 
 
@@ -515,11 +515,11 @@ static const err_def errors[] =
 static int
 db_status(int rval, term_t obj)
 { if ( rval == 0 )
-    return TRUE;
+    return true;
 
   if ( rval < 0 )
   { DEBUG(Sdprintf("DB error: %s\n", db_strerror(rval)));
-    return FALSE;			/* normal failure */
+    return false;			/* normal failure */
   } else
   { const char *id_str = NULL;
     const err_def *ed;
@@ -545,7 +545,7 @@ db_status(int rval, term_t obj)
 		         PL_VARIABLE) )
       return PL_raise_exception(ex);
 
-    return FALSE;
+    return false;
   }
 }
 
@@ -558,7 +558,7 @@ db_status_db(int rval, dbh *dbh)
        unify_db(db, dbh) )
     return db_status(rval, db);
 
-  return FALSE;
+  return false;
 }
 
 static int
@@ -569,7 +569,7 @@ db_status_env(int rval, dbenvh *db_env)
        unify_dbenv(env, db_env) )
     return db_status(rval, env);
 
-  return FALSE;
+  return false;
 }
 
 static int
@@ -589,7 +589,7 @@ db_preoptions(term_t t, dbenvh **db_env, int *type)
 	_PL_get_arg(1, head, a0);
 
 	if ( !PL_get_atom_ex(a0, &tp) )
-	  return FALSE;
+	  return false;
 	if ( tp == ATOM_btree )
 	  *type = DB_BTREE;
 	else if ( tp == ATOM_hash )
@@ -601,18 +601,18 @@ db_preoptions(term_t t, dbenvh **db_env, int *type)
 	else
 	  return PL_domain_error("db_type", a0);
 
-	return TRUE;
+	return true;
       } else if ( name == ATOM_environment )
       { term_t a0 = PL_new_term_ref();
 	_PL_get_arg(1, head, a0);
 
 	if ( !get_dbenv(a0, db_env) )
-	  return FALSE;
+	  return false;
       }
     }
   }
 
-  return TRUE;
+  return true;
 }
 
 
@@ -621,7 +621,7 @@ get_dtype(term_t t, dtype *type)
 { atom_t a;
 
   if ( !PL_get_atom_ex(t, &a) )
-    return FALSE;
+    return false;
   if ( a == ATOM_term )
     *type = D_TERM;
   else if ( a == ATOM_atom )
@@ -635,7 +635,7 @@ get_dtype(term_t t, dtype *type)
   else
     return PL_domain_error("type", t);
 
-  return TRUE;
+  return true;
 }
 
 
@@ -676,13 +676,13 @@ db_options(term_t t, dbh *dbh, char **subdb)
 	if ( name == ATOM_database )
 	{ if ( !PL_get_chars(a0, subdb,
 			     CVT_ATOM|CVT_STRING|CVT_EXCEPTION|REP_UTF8) )
-	    return FALSE;
+	    return false;
 	} else if ( name == ATOM_key )
 	{ if ( !get_dtype(a0, &dbh->key_type) )
-	    return FALSE;
+	    return false;
 	} else if ( name == ATOM_value )
 	{ if ( !get_dtype(a0, &dbh->value_type) )
-	    return FALSE;
+	    return false;
 	} else if ( name == ATOM_type || name == ATOM_environment )
 	{  ;  /* type(_) and environment() are handled by db_preoptions */
 	} else
@@ -690,7 +690,7 @@ db_options(term_t t, dbh *dbh, char **subdb)
 
 	  switch(fv)
 	  { case F_ERROR:
-	      return FALSE;
+	      return false;
 	    case F_UNPROCESSED:
 	      return PL_domain_error("db_option", head);
 	    default:
@@ -703,7 +703,7 @@ db_options(term_t t, dbh *dbh, char **subdb)
   }
 
   if ( !PL_get_nil_ex(tail) )
-    return FALSE;
+    return false;
 
   if ( flags )
   { int rval;
@@ -714,7 +714,7 @@ db_options(term_t t, dbh *dbh, char **subdb)
   }
 
 
-  return TRUE;
+  return true;
 }
 
 
@@ -727,17 +727,17 @@ default environment can be accessed from multiple threads.
 static int
 check_same_thread(dbenvh *env)
 { if ( (env->flags&DB_THREAD) || env->thread == PL_thread_self() )
-  { return TRUE;
+  { return true;
   } else if ( env == &default_env && !env->thread )
   { env->thread = PL_thread_self();
-    return TRUE;
+    return true;
   } else
   { term_t e;
 
     if ( (e = PL_new_term_ref()) &&
 	 unify_dbenv(e, env) )
       return PL_permission_error("access", "bdb_environment", e);
-    return FALSE;
+    return false;
   }
 }
 
@@ -755,10 +755,10 @@ pl_bdb_open(term_t file, term_t mode, term_t handle, term_t options)
   dbenvh *env = &default_env;
 
   if ( !PL_get_file_name(file, &fname, PL_FILE_OSPATH) )
-    return FALSE;
+    return false;
 
   if ( !PL_get_atom_ex(mode, &a) )		/* process mode */
-    return FALSE;
+    return false;
   if ( a == ATOM_read )
     flags = DB_RDONLY;
   else if ( a == ATOM_update )
@@ -768,7 +768,7 @@ pl_bdb_open(term_t file, term_t mode, term_t handle, term_t options)
 
   if ( !db_preoptions(options, &env, &type) ||
        !check_same_thread(env) )
-    return FALSE;
+    return false;
 
   dbh = calloc(1, sizeof(*dbh));
   dbh->magic = DBH_MAGIC;
@@ -784,7 +784,7 @@ pl_bdb_open(term_t file, term_t mode, term_t handle, term_t options)
 
   if ( !db_options(options, dbh, &subdb) )
   { bdb_close(dbh);
-    return FALSE;
+    return false;
   }
 
 #ifdef DB41
@@ -827,7 +827,7 @@ pl_bdb_close(term_t handle)
     return db_status(bdb_close(db), handle);
   }
 
-  return FALSE;
+  return false;
 }
 
 static foreign_t
@@ -839,9 +839,9 @@ pl_bdb_is_open(term_t t)
   { dbh *p = data;
 
     if ( p->db && p->symbol )
-      return TRUE;
+      return true;
 
-    return FALSE;
+    return false;
   }
 
   return PL_type_error("db", t);
@@ -897,7 +897,7 @@ begin_transaction(dbenvh *env, transaction *t)
     transaction_stack *stack;
 
     if ( !(stack=my_tr_stack()) )
-      return FALSE;
+      return false;
 
     if ( stack->top )
       pid = stack->top->tid;
@@ -912,14 +912,14 @@ begin_transaction(dbenvh *env, transaction *t)
     t->env = env;
     stack->top = t;
 
-    return TRUE;
+    return true;
   } else
   { term_t ex;
 
     if ( (ex=PL_new_term_ref()) &&
 	 unify_dbenv(ex, env) )
       return PL_permission_error("start", "transaction", ex);
-    return FALSE;
+    return false;
   }
 }
 
@@ -937,7 +937,7 @@ commit_transaction(transaction *t)
   if ( (rval=t->tid->commit(t->tid, 0)) )
     return db_status_env(rval, t->env);
 
-  return TRUE;
+  return true;
 }
 
 
@@ -954,7 +954,7 @@ abort_transaction(transaction *t)
   if ( (rval=t->tid->abort(t->tid)) )
     return db_status_env(rval, t->env);
 
-  return TRUE;
+  return true;
 }
 
 
@@ -983,11 +983,11 @@ bdb_transaction(term_t environment, term_t goal)
 
   if ( (environment && !get_dbenv(environment, &env)) ||
        !check_same_thread(env) )
-    return FALSE;
+    return false;
 
   NOSIG(rval=begin_transaction(env, &tr));
   if ( !rval )
-    return FALSE;
+    return false;
 
   qid = PL_open_query(NULL, PL_Q_PASS_EXCEPTION, call1, goal);
   rval = PL_next_solution(qid);
@@ -1000,9 +1000,9 @@ bdb_transaction(term_t environment, term_t goal)
 
     NOSIG(rval=abort_transaction(&tr));
     if ( !rval )
-      return FALSE;
+      return false;
 
-    return FALSE;
+    return false;
   }
 }
 
@@ -1030,11 +1030,11 @@ pl_bdb_put(term_t handle, term_t key, term_t value)
   int rval;
 
   if ( !get_db(handle, &db) )
-    return FALSE;
+    return false;
 
   if ( !get_dbt(key, db->key_type, &k) ||
        !get_dbt(value, db->value_type, &v) )
-    return FALSE;
+    return false;
 
   NOSIG(rval = db_status(db->db->put(db->db, TheTXN, &k, &v, flags), handle));
   free_dbt(&k, db->key_type);
@@ -1052,10 +1052,10 @@ pl_bdb_del2(term_t handle, term_t key)
   int rval;
 
   if ( !get_db(handle, &db) )
-    return FALSE;
+    return false;
 
   if ( !get_dbt(key, db->key_type, &k) )
-    return FALSE;
+    return false;
 
   NOSIG(rval = db_status(db->db->del(db->db, TheTXN, &k, flags), handle));
   free_dbt(&k, db->key_type);
@@ -1068,12 +1068,12 @@ static int
 equal_dbt(DBT *a, DBT *b)
 { if ( a->size == b->size )
   { if ( a->data == b->data )
-      return TRUE;
+      return true;
     if ( memcmp(a->data, b->data, a->size) == 0 )
-      return TRUE;
+      return true;
   }
 
-  return FALSE;
+  return false;
 }
 
 
@@ -1084,10 +1084,10 @@ pl_bdb_getall(term_t handle, term_t key, term_t value)
   int rval;
 
   if ( !get_db(handle, &db) )
-    return FALSE;
+    return false;
 
   if ( !get_dbt(key, db->key_type, &k) )
-    return FALSE;
+    return false;
   memset(&v, 0, sizeof(v));
 
   if ( (db->flags&DB_DUP) )			/* must use a cursor */
@@ -1106,7 +1106,7 @@ pl_bdb_getall(term_t handle, term_t key, term_t value)
       if ( !PL_unify_list(tail, head, tail) ||
 	   !unify_dbt(head, db->value_type, &v) )
       { cursor->c_close(cursor);
-	return FALSE;
+	return false;
       }
 
       memset(&k2, 0, sizeof(k2));
@@ -1135,7 +1135,7 @@ pl_bdb_getall(term_t handle, term_t key, term_t value)
       }
     } else if ( rval == DB_NOTFOUND )
     { free_dbt(&k, db->key_type);
-      return FALSE;
+      return false;
     } else
     { free_dbt(&k, db->key_type);
       return db_status(rval, handle);
@@ -1151,15 +1151,15 @@ pl_bdb_getall(term_t handle, term_t key, term_t value)
       free_dbt(&k, db->key_type);
       if ( !unify_dbt(t, db->value_type, &v) )
       { free_result_dbt(&v);
-	return FALSE;
+	return false;
       }
       free_result_dbt(&v);
       if ( PL_unify_list(tail, head, tail) &&
 	   PL_unify(head, t) &&
 	   PL_unify_nil(tail) )
-	return TRUE;
+	return true;
 
-      return FALSE;
+      return false;
     } else
       return db_status(rval, handle);
   }
@@ -1189,7 +1189,7 @@ pl_bdb_enum(term_t handle, term_t key, term_t value, control_t ctx)
   switch( PL_foreign_control(ctx) )
   { case PL_FIRST_CALL:
       if ( !get_db(handle, &db) )
-	return FALSE;
+	return false;
       c = calloc(1, sizeof(*c));
 
       c->db = db;
@@ -1263,7 +1263,7 @@ out:
     PL_close_foreign_frame(fid);
 
   db_status(rval, handle);
-  return FALSE;				/* also on rval = 0! */
+  return false;				/* also on rval = 0! */
 }
 
 
@@ -1286,7 +1286,7 @@ pl_bdb_getdel(term_t handle, term_t key, term_t value, control_t ctx, int del)
   switch( PL_foreign_control(ctx) )
   { case PL_FIRST_CALL:
       if ( !get_db(handle, &db) )
-	return FALSE;
+	return false;
 
       if ( (db->flags&DB_DUP) )		/* DB with duplicates */
       { c = calloc(1, sizeof(*c));
@@ -1298,7 +1298,7 @@ pl_bdb_getdel(term_t handle, term_t key, term_t value, control_t ctx, int del)
 	}
 	DEBUG(Sdprintf("Created cursor at %p\n", c->cursor));
 	if ( !get_dbt(key, db->key_type, &c->key) )
-	  return FALSE;
+	  return false;
 
 	rval = c->cursor->c_get(c->cursor, &c->key, &c->value, DB_SET);
 	if ( rval == 0 )
@@ -1324,7 +1324,7 @@ pl_bdb_getdel(term_t handle, term_t key, term_t value, control_t ctx, int del)
 	int rc;
 
 	if ( !get_dbt(key, db->key_type, &k) )
-	  return FALSE;
+	  return false;
 	memset(&v, 0, sizeof(v));
 	if ( (db->env->flags&DB_THREAD) )
 	  v.flags = DB_DBT_MALLOC;
@@ -1387,7 +1387,7 @@ out:
     PL_close_foreign_frame(fid);
 
   db_status(rval, handle);
-  return FALSE;				/* also on rval = 0! */
+  return false;				/* also on rval = 0! */
 }
 
 
@@ -1395,7 +1395,7 @@ static foreign_t
 pl_bdb_get(term_t handle, term_t key, term_t value, control_t ctx)
 { foreign_t rval;
 
-  NOSIG(rval = pl_bdb_getdel(handle, key, value, ctx, FALSE));
+  NOSIG(rval = pl_bdb_getdel(handle, key, value, ctx, false));
 
   return rval;
 }
@@ -1405,7 +1405,7 @@ static foreign_t
 pl_bdb_del3(term_t handle, term_t key, term_t value, control_t ctx)
 { foreign_t rval;
 
-  NOSIG(rval = pl_bdb_getdel(handle, key, value, ctx, TRUE));
+  NOSIG(rval = pl_bdb_getdel(handle, key, value, ctx, true));
 
   return rval;
 }
@@ -1413,7 +1413,7 @@ pl_bdb_del3(term_t handle, term_t key, term_t value, control_t ctx)
 
 static int
 bdb_close_env(dbenvh *env, int silent)
-{ int rc = TRUE;
+{ int rc = true;
 
   if ( env->env )
   { int rval = env->env->close(env->env, 0);
@@ -1483,7 +1483,7 @@ get_server(term_t options, server_info *info)
 	_PL_get_arg(1, h, a);
 	if ( !PL_get_chars(a, &info->host,
 			   CVT_ATOM|CVT_STRING|REP_MB|CVT_EXCEPTION) )
-	  return FALSE;
+	  return false;
       }
       if ( arity == 2 )			/* server(host, options) */
       { term_t a = PL_new_term_ref();
@@ -1498,24 +1498,24 @@ get_server(term_t options, server_info *info)
 
 	    if ( name == ATOM_server_timeout )
 	    { if ( !PL_get_long_ex(a, &info->sv_timeout) )
-		return FALSE;
+		return false;
 	    } else if ( name == ATOM_client_timeout )
 	    { if ( !PL_get_long_ex(a, &info->cl_timeout) )
-		return FALSE;
+		return false;
 	    } else
 	      return PL_domain_error("server_option", a);
 	  } else
 	    return PL_domain_error("server_option", a);
 	}
 	if ( !PL_get_nil_ex(l) )
-	  return FALSE;
+	  return false;
       }
 
-      return TRUE;
+      return true;
     }
   }
 
-  return FALSE;
+  return false;
 }
 
 
@@ -1601,7 +1601,7 @@ bdb_init(term_t newenv, term_t option_list)
     if ( (e=PL_new_term_ref()) &&
 	 unify_dbenv(e, env) )
       return PL_permission_error("initialize", "environment", e);
-    return FALSE;
+    return false;
   }
 
   config[0] = NULL;
@@ -1651,21 +1651,21 @@ bdb_init(term_t newenv, term_t option_list)
       { size_t v;
 
 	if ( !PL_get_size_ex(a, &v) )
-	  return FALSE;
+	  return false;
 	env->env->set_mp_mmapsize(env->env, v);
 	flags |= DB_INIT_MPOOL;
       } else if ( name == ATOM_mp_size ) /* mp_size */
       { size_t v;
 
 	if ( !PL_get_size_ex(a, &v) )
-	  return FALSE;
+	  return false;
 	env->env->set_cachesize(env->env, 0, (uint32_t) v, 0); /* safe cast */
 	flags |= DB_INIT_MPOOL;
       } else if ( name == ATOM_thread_count )
       { size_t v;
 
 	if ( !PL_get_size_ex(a, &v) )
-	  return FALSE;
+	  return false;
 	env->env->set_thread_count(env->env, (uint32_t) v); /* safe cast */
       } else if ( name == ATOM_home )	/* db_home */
       {	if ( !PL_get_file_name(a, &home,
@@ -1732,16 +1732,16 @@ bdb_init(term_t newenv, term_t option_list)
     env->thread = PL_thread_self();
 
   if ( !rval )
-    return TRUE;
+    return true;
 
 pl_error:
-  bdb_close_env(env, TRUE);
-  return FALSE;
+  bdb_close_env(env, true);
+  return false;
 
 db_error:
   db_status_env(rval, env);
-  bdb_close_env(env, TRUE);
-  return FALSE;
+  bdb_close_env(env, true);
+  return false;
 }
 
 static foreign_t
@@ -1759,9 +1759,9 @@ pl_bdb_close_environment(term_t handle)
 { dbenvh *db_env;
 
   if ( get_dbenv(handle, &db_env) )
-    return bdb_close_env(db_env, FALSE);
+    return bdb_close_env(db_env, false);
 
-  return FALSE;
+  return false;
 }
 
 static foreign_t
@@ -1774,11 +1774,11 @@ pl_bdb_is_open_env(term_t t)
   { dbenvh *p = data;
 
     if ( p->symbol )
-      return TRUE;
+      return true;
 
-    return FALSE;
+    return false;
   } else if ( PL_get_atom(t, &a) && a == ATOM_default )
-  { return TRUE;
+  { return true;
   }
 
   return PL_type_error("bdb_env", t);
@@ -1805,7 +1805,7 @@ pl_bdb_env_property(term_t t, term_t prop)
     }
   }
 
-  return FALSE;
+  return false;
 }
 
 
@@ -1858,5 +1858,5 @@ uninstall(void)
   { pthread_key_delete(transaction_key);
     transaction_key = 0;
   }
-  bdb_close_env(&default_env, TRUE);
+  bdb_close_env(&default_env, true);
 }
